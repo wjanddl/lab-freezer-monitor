@@ -3,186 +3,429 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>냉동고 모니터</title>
+<title>초저온 냉동고</title>
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --fg:#1b1f24; --muted:#667085; --line:#e4e7ec;
-          --ok:#12b76a; --warn:#f79009; --crit:#f04438; --accent:#2e90fa; }
+  /* 냉동고 계기판: 차가운 종이 바탕 + 잉크색 글자 + 냉기 파랑 하나. 강조는 '온도 눈금' 한 곳에만 */
+  :root {
+    --paper: #eef2f4; --surface: #f8fafb; --ink: #14212b; --ink-2: #4a5a66; --ink-3: #8696a1;
+    --rule: #d6dee3; --cryo: #2b6c8f; --cryo-soft: #d3e4ec; --warn: #b86e00; --warn-soft: #f6e5c8;
+    --crit: #b4261f; --crit-soft: #f4d5d2; --ok: #2f7d5b;
+  }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#0f1115; --card:#181b21; --fg:#e6e8eb; --muted:#98a2b3; --line:#2a2f37; }
+    :root:not([data-theme="light"]) {
+      --paper: #0e161c; --surface: #15212a; --ink: #e4ecf0; --ink-2: #a9b8c2; --ink-3: #6f8190;
+      --rule: #24343f; --cryo: #6fb3d6; --cryo-soft: #1d3644; --warn: #e3a23c; --warn-soft: #3a2d17;
+      --crit: #f0776e; --crit-soft: #3d1f1d; --ok: #5cc196;
+    }
   }
   * { box-sizing: border-box; }
-  [hidden] { display: none !important; }  /* #login의 display:grid가 hidden 속성을 덮지 않게 */
-  body { margin:0; font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--fg); }
-  header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); }
-  header h1 { font-size:17px; margin:0; }
-  main { max-width:960px; margin:0 auto; padding:16px; display:grid; gap:16px; }
-  main > * { min-width: 0; }  /* 표가 그리드 칸을 넓혀 폰에서 가로 스크롤 생기는 것 방지 */
-  td { white-space: nowrap; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
-  .muted { color:var(--muted); font-size:13px; }
-  .dev { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
-  .temp { font-size:40px; font-weight:600; font-variant-numeric:tabular-nums; }
-  .badge { padding:3px 10px; border-radius:999px; font-weight:600; font-size:13px; color:#fff; }
-  .OK { background:var(--ok); } .WARNING { background:var(--warn); } .CRITICAL { background:var(--crit); } .OFF { background:var(--muted); }
-  button, select, input { font:inherit; padding:6px 10px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
-  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th, td { text-align:left; padding:6px 4px; border-bottom:1px solid var(--line); vertical-align:top; }
-  .scroll { overflow-x:auto; }
-  svg { width:100%; height:220px; display:block; }
-  #login { max-width:320px; margin:60px auto; display:grid; gap:10px; }
-  .err { color:var(--crit); font-size:13px; min-height:1em; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; word-break: keep-all; }  /* 한국어는 어절 단위로 줄바꿈 */
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font: 400 15px/1.55 "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, -apple-system, "Segoe UI", sans-serif;  /* 외부 폰트 없음(오프라인에서도 동일) */ }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+  button, select, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--cryo); outline-offset: 2px; }
+
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 14px; }
+  .bar .name { font-weight: 600; letter-spacing: -0.01em; }
+  .bar .name small { font-weight: 400; color: var(--ink-3); margin-left: 8px; }
+  .bar .right { display: flex; align-items: center; gap: 12px; color: var(--ink-2); font-size: 13px; }
+  .link { background: none; border: 0; padding: 4px 0; color: var(--ink-2); cursor: pointer; border-bottom: 1px solid var(--rule); }
+  .link:hover { color: var(--ink); border-color: var(--ink-3); }
+  .demo-flag { background: var(--cryo-soft); color: var(--cryo); padding: 3px 10px; border-radius: 4px; font-size: 13px; }
+
+  /* 현재 상태: 큰 온도 + 눈금 */
+  .hero { padding: 28px 0 36px; border-top: 1px solid var(--rule); }
+  .hero-top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px; }
+  .temp { font-weight: 300; font-size: clamp(64px, 14vw, 128px); line-height: .9; letter-spacing: -0.045em; }
+  .temp .unit { font-size: .32em; font-weight: 400; letter-spacing: 0; color: var(--ink-2); margin-left: .12em; vertical-align: .95em; }
+  .verdict { max-width: 36ch; padding-bottom: 8px; }
+  .verdict strong { display: block; font-size: 19px; font-weight: 500; }
+  .verdict span { color: var(--ink-2); font-size: 14px; }
+  .s-OK strong { color: var(--ok); } .s-WARNING strong { color: var(--warn); }
+  .s-CRITICAL strong, .s-OFF strong { color: var(--crit); }
+
+  .scale { margin-top: 30px; }
+  .scale svg { width: 100%; height: 64px; display: block; overflow: visible; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-top: 22px; }
+  .facts div { border-left: 2px solid var(--rule); padding-left: 12px; }
+  .facts dt { color: var(--ink-3); font-size: 13px; }
+  .facts dd { margin: 2px 0 0; font-weight: 500; }
+
+  section.block { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 22px 22px 18px; margin-bottom: 20px; }
+  .block-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  .block-head h2 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; }
+  .seg button { background: none; border: 0; padding: 5px 12px; cursor: pointer; color: var(--ink-2); font-size: 13px; }
+  .seg button + button { border-left: 1px solid var(--rule); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+  .chart { position: relative; }
+  .chart svg { width: 100%; height: 300px; display: block; touch-action: pan-y; }
+  .tip { position: absolute; top: 0; pointer-events: none; background: var(--ink); color: var(--surface); font-size: 12px;
+         padding: 6px 9px; border-radius: 4px; white-space: nowrap; transform: translateX(-50%); }
+  .stats { display: flex; flex-wrap: wrap; gap: 6px 28px; color: var(--ink-2); font-size: 13px; margin-top: 10px; }
+  .stats b { color: var(--ink); font-weight: 500; }
+
+  .events { list-style: none; margin: 0; padding: 0; }
+  .events li { display: grid; grid-template-columns: 4px 1fr auto; gap: 14px; padding: 12px 0; border-top: 1px solid var(--rule); align-items: center; }
+  .events li:first-child { border-top: 0; }
+  .events .sev { align-self: stretch; border-radius: 2px; background: var(--warn); }
+  .events .CRITICAL .sev { background: var(--crit); }
+  .events .what { font-weight: 500; }
+  .events .when { color: var(--ink-2); font-size: 13px; }
+  .live { color: var(--crit); font-weight: 500; }
+  .ack { border: 1px solid var(--rule); background: none; border-radius: 5px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
+  .ack:hover { border-color: var(--ink-3); }
+  .acked { color: var(--ink-3); font-size: 13px; text-align: right; }
+  .empty { color: var(--ink-3); padding: 12px 0; }
+  .err { color: var(--crit); font-size: 13px; min-height: 1.2em; margin: 6px 0; }
+  footer { color: var(--ink-3); font-size: 12px; padding: 4px 0 28px; }
+
+  /* 로그인 */
+  .login { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+  .login form { width: min(340px, 100%); display: grid; gap: 12px; }
+  .login h1 { font-size: 22px; font-weight: 500; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .login p { margin: 0 0 8px; color: var(--ink-2); font-size: 14px; }
+  .login input { padding: 11px 12px; border: 1px solid var(--rule); border-radius: 5px; background: var(--surface); }
+  .primary { padding: 11px; border: 0; border-radius: 5px; background: var(--ink); color: var(--surface); cursor: pointer; font-weight: 500; }
+  .login .alt { justify-self: center; }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 0 16px; }
+    section.block { padding: 16px 14px 14px; }
+    .chart svg { height: 240px; }
+  }
 </style>
 </head>
 <body>
-<form id="login" class="card" hidden>
-  <h1 style="margin:0">냉동고 모니터 로그인</h1>
-  <input id="u" placeholder="아이디" autocomplete="username" required>
-  <input id="p" type="password" placeholder="비밀번호" autocomplete="current-password" required>
-  <button class="primary">로그인</button>
-  <div class="err" id="lerr"></div>
-</form>
+<div class="login" id="login" hidden>
+  <form id="loginForm">
+    <h1>초저온 냉동고 모니터</h1>
+    <p>연구실 계정으로 로그인하세요.</p>
+    <input id="u" placeholder="아이디" autocomplete="username" autocapitalize="off" required>
+    <input id="p" type="password" placeholder="비밀번호" autocomplete="current-password" required>
+    <button class="primary">로그인</button>
+    <div class="err" id="lerr" role="alert"></div>
+    <button type="button" class="link alt" id="demoBtn">로그인 없이 데모 데이터로 둘러보기</button>
+  </form>
+</div>
 
 <div id="app" hidden>
-  <header>
-    <h1>냉동고 모니터</h1>
-    <div><span class="muted" id="who"></span> <button id="logout">로그아웃</button></div>
-  </header>
-  <main>
-    <div class="err" id="err"></div>
-    <section id="devices"></section>
-    <section class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>온도 추이</strong>
-        <span><select id="dev"></select>
-        <select id="range"><option value="3600">1시간</option><option value="86400" selected>24시간</option><option value="604800">7일</option></select></span>
+  <div class="wrap">
+    <div class="bar">
+      <div class="name"><span id="devName">-</span><small id="devPicker"></small></div>
+      <div class="right"><span class="demo-flag" id="demoFlag" hidden>DEMO · 가짜 데이터</span><span id="who"></span><button class="link" id="logout">로그아웃</button></div>
+    </div>
+    <div class="err" id="err" role="alert"></div>
+
+    <div class="hero" id="hero">
+      <div class="hero-top">
+        <div class="temp num" id="temp" aria-live="polite">-</div>
+        <div class="verdict" id="verdict"><strong>-</strong><span></span></div>
       </div>
-      <svg id="chart" role="img" aria-label="온도 그래프"></svg>
-      <div class="muted" id="chartinfo"></div>
+      <div class="scale"><svg id="scale" role="img" aria-label="현재 온도와 경보 기준 눈금"></svg></div>
+      <dl class="facts" id="facts"></dl>
+    </div>
+
+    <section class="block">
+      <div class="block-head">
+        <h2>온도 추이</h2>
+        <div class="seg" id="range" role="group" aria-label="기간">
+          <button data-s="3600">1시간</button><button data-s="86400" aria-pressed="true">24시간</button><button data-s="604800">7일</button><button data-s="2592000">30일</button>
+        </div>
+      </div>
+      <div class="chart" id="chartBox"><svg id="chart" role="img" aria-label="온도 그래프"></svg><div class="tip" id="tip" hidden></div></div>
+      <div class="stats num" id="stats"></div>
     </section>
-    <section class="card">
-      <strong>이상 이력</strong>
-      <div class="scroll"><table><thead><tr><th>시작</th><th>장치</th><th>종류</th><th>단계</th><th>해제</th><th>값</th><th>확인</th></tr></thead>
-      <tbody id="events"></tbody></table></div>
+
+    <section class="block">
+      <div class="block-head"><h2>이상 기록</h2><span class="when" id="evCount"></span></div>
+      <ul class="events" id="events"></ul>
     </section>
-  </main>
+    <footer id="foot"></footer>
+  </div>
 </div>
 
 <script>
-// 시각은 서버가 UTC epoch 초로 주고, 표시만 Asia/Seoul
-const POLL_MS = 30000;
+// 시각은 서버가 UTC epoch 초로 주고, 표시만 Asia/Seoul. 30초마다 다시 읽는다.
+const POLL_MS = 30000, STALE_S = 180;
 const KIND = { temp: "온도", door: "문 열림", sensor: "센서 장애", offline: "장치 무응답" };
-const fmt = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
-const t = s => s ? fmt.format(new Date(s * 1000)) : "-";
+const tz = { timeZone: "Asia/Seoul", hour12: false };
+const fTime = new Intl.DateTimeFormat("ko-KR", { ...tz, hour: "2-digit", minute: "2-digit" });
+const fDay = new Intl.DateTimeFormat("ko-KR", { ...tz, month: "numeric", day: "numeric" });
+const fFull = new Intl.DateTimeFormat("ko-KR", { ...tz, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const T = s => s ? fFull.format(new Date(s * 1000)) : "-";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-
-// 토큰은 탭을 닫으면 사라지도록 sessionStorage
 const store = { get: k => { try { return sessionStorage.getItem(k); } catch { return null; } },
                 set: (k, v) => { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch {} } };
+// 경보 기준: admin이면 서버 설정을 읽고, viewer는 기본값으로 표시만 한다
+let TH = { warn: -70, crit: -60, low: -85 };
 
+// ---------- 데이터 소스: 실제 API 또는 데모(브라우저에서만 생성, 서버에 저장 안 함) ----------
+let DEMO = false;
+const Api = {
+  async login(u, p) { saveTokens(await post("/api/v1/auth/login", { username: u, password: p })); },
+  async get(path) { return DEMO ? Demo.get(path) : authed(path); },
+  async ack(id) { return DEMO ? Demo.ack(id) : authed(`/api/v1/events/${id}/ack`, { method: "POST" }); },
+};
 async function post(path, body) {
   const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!r.ok) throw Object.assign(new Error((await r.json().catch(() => ({}))).detail || r.status), { status: r.status });
+  if (!r.ok) throw Object.assign(new Error(r.status), { status: r.status });
   return r.json();
 }
 function saveTokens(j) { store.set("access", j.access_token); store.set("refresh", j.refresh_token); }
-
-async function api(path, opts = {}, retry = true) {
-  const r = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), Authorization: "Bearer " + store.get("access") } });
+async function authed(path, opts = {}, retry = true) {
+  const r = await fetch(path, { ...opts, headers: { Authorization: "Bearer " + store.get("access") } });
   if (r.status === 401 && retry && store.get("refresh")) {
     try { saveTokens(await post("/api/v1/auth/refresh", { refresh_token: store.get("refresh") })); }
-    catch { return showLogin(); }
-    return api(path, opts, false);
+    catch { toLogin(); throw new Error("login"); }
+    return authed(path, opts, false);
   }
-  if (r.status === 401) return showLogin();
-  if (!r.ok) throw new Error(`${path} → ${r.status}`);
+  if (r.status === 401) { toLogin(); throw new Error("login"); }
+  if (!r.ok) throw Object.assign(new Error(`${r.status}`), { status: r.status });
   return r.json();
 }
 
-function showLogin() { store.set("access", null); store.set("refresh", null); $("app").hidden = true; $("login").hidden = false; throw new Error("login"); }
+const Demo = (() => {
+  // 30일치 10분 간격 가짜 기록: 압축기 주기(±0.5℃), 매일 문 여닫기, 사흘 전 경고 1번, 9일 전 위험 1번
+  const now = Math.floor(Date.now() / 1000), start = now - 30 * 86400, step = 600, pts = [];
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const exc = [{ at: now - 3 * 86400 - 5400, len: 35 * 60, peak: -66.4 }, { at: now - 9 * 86400 + 7200, len: 50 * 60, peak: -57.8 }];
+  for (let ts = start; ts <= now; ts += step) {
+    let t = -80.2 + 0.5 * Math.sin(ts / 2700) + (rnd() - 0.5) * 0.25;
+    const hour = +new Intl.DateTimeFormat("en", { ...tz, hour: "numeric" }).format(new Date(ts * 1000));
+    const door = hour >= 9 && hour <= 18 && rnd() < 0.05;
+    if (door) t += 1.2 + rnd() * 1.5;
+    for (const e of exc) if (ts >= e.at && ts < e.at + e.len + 3600) {
+      const k = ts < e.at + e.len ? (ts - e.at) / e.len : 1 - (ts - e.at - e.len) / 3600;
+      t = Math.max(t, t + (e.peak - t) * Math.sin(Math.min(1, k) * Math.PI / 2));
+    }
+    pts.push({ ts, temp_c: +t.toFixed(2), door_open: door });
+  }
+  const events = [
+    { id: 3, device_id: "freezer-01", type: "door", severity: "WARNING", started_at: now - 26 * 3600, resolved_at: now - 26 * 3600 + 260, peak_value: 4, acknowledged_by: null },
+    { id: 2, device_id: "freezer-01", type: "temp", severity: "WARNING", started_at: exc[0].at + 600, resolved_at: exc[0].at + exc[0].len + 1800, peak_value: exc[0].peak, acknowledged_by: "kim", acknowledged_at: exc[0].at + 1500 },
+    { id: 1, device_id: "freezer-01", type: "temp", severity: "CRITICAL", started_at: exc[1].at + 600, resolved_at: exc[1].at + exc[1].len + 2400, peak_value: exc[1].peak, acknowledged_by: "lee", acknowledged_at: exc[1].at + 1200 },
+  ];
+  return {
+    get(path) {
+      const u = new URL(path, location.origin), n = Math.floor(Date.now() / 1000);
+      if (u.pathname.endsWith("/status")) {
+        const last = pts[pts.length - 1];
+        return { server_time: n, devices: [{ device_id: "freezer-01", last_seen: n - 8, online: true, alarm_level: "OK", alarms: [],
+          reading: { ts: n - 8, temp_c: last.temp_c, door_open: false, sensor_fault: 0 } }] };
+      }
+      if (u.pathname.endsWith("/readings")) {
+        const from = +u.searchParams.get("from"), to = +u.searchParams.get("to");
+        const every = Math.max(step, Math.ceil((to - from) / 500)), buckets = new Map();
+        for (const p of pts) if (p.ts >= from && p.ts < to) {
+          const k = from + Math.floor((p.ts - from) / every) * every, b = buckets.get(k) || { s: 0, n: 0, m: -999, d: false };
+          b.s += p.temp_c; b.n++; b.m = Math.max(b.m, p.temp_c); b.d ||= p.door_open; buckets.set(k, b);
+        }
+        return { device_id: "freezer-01", from, to, interval_s: every,
+          points: [...buckets].map(([ts, b]) => ({ ts, temp_c: +(b.s / b.n).toFixed(2), temp_max: b.m, door_open: b.d })) };
+      }
+      if (u.pathname.endsWith("/events")) return { events };
+      if (u.pathname.endsWith("/settings")) return { temp_warn_c: -70, temp_crit_c: -60 };
+      if (u.pathname.endsWith("/me")) return { username: "데모", role: "viewer" };
+    },
+    ack(id) { const e = events.find(x => x.id == id); e.acknowledged_by = "데모"; e.acknowledged_at = Math.floor(Date.now() / 1000); return e; },
+  };
+})();
 
-$("login").onsubmit = async e => {
+// ---------- 화면 ----------
+function toLogin() { store.set("access", null); store.set("refresh", null); DEMO = false; $("app").hidden = true; $("login").hidden = false; $("u").focus(); }
+$("loginForm").onsubmit = async e => {
   e.preventDefault(); $("lerr").textContent = "";
-  try { saveTokens(await post("/api/v1/auth/login", { username: $("u").value, password: $("p").value })); $("p").value = ""; start(); }
-  catch (x) { $("lerr").textContent = x.status === 429 ? "로그인 실패가 많아 잠시 잠겼습니다" : "아이디 또는 비밀번호가 틀렸습니다"; }
+  try { await Api.login($("u").value.trim(), $("p").value); $("p").value = ""; start(); }
+  catch (x) { $("lerr").textContent = x.status === 429 ? "로그인 실패가 많아 15분간 잠겼습니다. 잠시 후 다시 시도하세요." : "아이디 또는 비밀번호가 맞지 않습니다. 한/영 상태를 확인하세요."; }
 };
-$("logout").onclick = async () => { try { await post("/api/v1/auth/logout", { refresh_token: store.get("refresh") }); } catch {} try { showLogin(); } catch {} };
+$("demoBtn").onclick = () => { DEMO = true; start(); };
+$("logout").onclick = async () => { if (!DEMO) try { await post("/api/v1/auth/logout", { refresh_token: store.get("refresh") }); } catch {} toLogin(); };
 
-function renderDevices(st) {
-  const sel = $("dev"), cur = sel.value;
-  sel.innerHTML = st.devices.map(d => `<option>${esc(d.device_id)}</option>`).join("");
-  if (cur) sel.value = cur;
-  $("devices").innerHTML = st.devices.map(d => {
-    const r = d.reading, stale = !r || st.server_time - r.ts > 180;
-    const temp = stale ? "NO DATA" : r.temp_c == null ? "센서 오류" : r.temp_c.toFixed(1) + "℃";
-    const alarms = d.alarms.map(a => `${KIND[a.kind] || esc(a.kind)} ${a.level} (${t(a.since)}~)`).join(", ");
-    return `<div class="card dev">
-      <div><div class="muted">${esc(d.device_id)}</div><div class="temp">${temp}</div></div>
-      <div><span class="badge ${d.alarm_level}">${d.alarm_level}</span>
-        <span class="badge ${d.online ? "OK" : "OFF"}">${d.online ? "온라인" : "오프라인"}</span>
-        <div class="muted">문: ${r && r.door_open != null ? (r.door_open ? "열림" : "닫힘") : "-"} · 측정 ${t(r && r.ts)} · 수신 ${t(d.last_seen)}</div>
-        ${alarms ? `<div class="muted">진행 중: ${alarms}</div>` : ""}</div></div>`;
-  }).join("") || `<div class="card muted">등록된 장치가 없습니다</div>`;
+let range = 86400, dev = null, lastChart = null;
+$("range").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  range = +b.dataset.s;
+  for (const x of $("range").children) x.setAttribute("aria-pressed", x === b);
+  refresh();
+};
+
+function verdictOf(d, st) {
+  const r = d.reading, stale = !r || st.server_time - r.ts > STALE_S;
+  if (!d.online) return ["OFF", "장치 신호가 끊겼습니다", `마지막 수신 ${T(d.last_seen)}. 전원과 네트워크를 확인하세요.`];
+  if (stale) return ["OFF", "최근 측정값이 없습니다", "센서 연결 상태를 확인하세요."];
+  if (r.temp_c == null) return ["CRITICAL", "센서 값을 읽지 못했습니다", `센서 오류 코드 0x${r.sensor_fault.toString(16)}. 배선을 확인하세요.`];
+  if (d.alarm_level === "CRITICAL") return ["CRITICAL", "즉시 확인이 필요합니다", alarmText(d)];
+  if (d.alarm_level === "WARNING") return ["WARNING", "경고 기준을 넘었습니다", alarmText(d)];
+  return ["OK", "안전 범위에서 유지 중입니다", `경고 기준 ${TH.warn}℃까지 ${(TH.warn - r.temp_c).toFixed(1)}℃ 여유`];
+}
+const alarmText = d => d.alarms.map(a => `${KIND[a.kind] || a.kind} ${T(a.since)}부터`).join(", ");
+
+function renderHero(st) {
+  if (!st.devices.length) { $("devName").textContent = "등록된 장치 없음"; return; }
+  const d = st.devices.find(x => x.device_id === dev) || st.devices[0];
+  dev = d.device_id;
+  $("devName").textContent = d.device_id;
+  $("devPicker").innerHTML = st.devices.length > 1
+    ? `<select id="devSel" aria-label="장치 선택">${st.devices.map(x => `<option ${x.device_id === dev ? "selected" : ""}>${esc(x.device_id)}</option>`).join("")}</select>` : "";
+  if ($("devSel")) $("devSel").onchange = e => { dev = e.target.value; refresh(); };
+  const r = d.reading, stale = !r || st.server_time - r.ts > STALE_S;
+  const [cls, head, sub] = verdictOf(d, st);
+  $("temp").innerHTML = stale || r.temp_c == null ? "—" : `${r.temp_c.toFixed(1)}<span class="unit">℃</span>`;
+  $("verdict").className = "verdict s-" + cls;
+  $("verdict").innerHTML = `<strong>${head}</strong><span>${esc(sub)}</span>`;
+  renderScale(stale ? null : r.temp_c);
+  $("facts").innerHTML = [
+    ["측정 시각", r ? T(r.ts) : "-"],
+    ["문", r && r.door_open != null && !stale ? (r.door_open ? "열림" : "닫힘") : "-"],
+    ["경보 기준", `경고 ${TH.warn}℃ · 위험 ${TH.crit}℃`],
+    ["장치 연결", d.online ? "정상" : "끊김"],
+  ].map(([k, v]) => `<div><dt>${k}</dt><dd class="num">${v}</dd></div>`).join("");
+  document.title = (stale || r.temp_c == null ? "—" : r.temp_c.toFixed(1) + "℃") + " · 초저온 냉동고";
+}
+
+// 온도 눈금: -95 ~ -45℃. 안전/경고/위험 구간을 띠로, 현재 온도를 바늘로
+function renderScale(t) {
+  const svg = $("scale"), W = svg.clientWidth || 800, lo = -95, hi = -45, y0 = 24, h = 10;
+  const x = v => (Math.min(hi, Math.max(lo, v)) - lo) / (hi - lo) * W;
+  const band = (a, b, c) => `<rect x="${x(a)}" y="${y0}" width="${x(b) - x(a)}" height="${h}" fill="var(${c})"/>`;
+  let ticks = "";
+  for (let v = lo; v <= hi; v += 5) {
+    const major = v % 10 === 0;
+    ticks += `<line x1="${x(v)}" x2="${x(v)}" y1="${y0 + h}" y2="${y0 + h + (major ? 8 : 4)}" stroke="var(--ink-3)"/>`;
+    if (major) ticks += `<text x="${x(v)}" y="${y0 + h + 22}" text-anchor="middle" font-size="11" fill="var(--ink-3)">${v}</text>`;
+  }
+  const needle = t == null ? "" : `<g><line x1="${x(t)}" x2="${x(t)}" y1="${y0 - 14}" y2="${y0 + h}" stroke="var(--ink)" stroke-width="2"/>
+    <circle cx="${x(t)}" cy="${y0 - 16}" r="4" fill="var(--ink)"/></g>`;
+  svg.setAttribute("viewBox", `0 0 ${W} 64`);
+  svg.innerHTML = band(lo, TH.low, "--cryo-soft") + band(TH.low, TH.warn, "--cryo") + band(TH.warn, TH.crit, "--warn") + band(TH.crit, hi, "--crit")
+    + `<text x="${(x(TH.low) + x(TH.warn)) / 2}" y="${y0 - 6}" text-anchor="middle" font-size="11" fill="var(--ink-2)">안전</text>` + ticks + needle;
 }
 
 function renderChart(r) {
-  const svg = $("chart"), W = svg.clientWidth || 600, H = 220, P = 32;  // 실제 폭 사용 (글자 왜곡 없이 꽉 차게)
+  lastChart = r;
+  const svg = $("chart"), W = svg.clientWidth || 800, H = svg.clientHeight || 300, L = 40, R = 12, Tp = 12, B = 26;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   const pts = r.points.filter(p => p.temp_c != null);
-  $("chartinfo").textContent = `${t(r.from)} ~ ${t(r.to)} · ${r.interval_s}초 평균 · ${pts.length}점`;
-  if (!pts.length) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" fill="currentColor" opacity=".6">데이터 없음</text>`; return; }
-  const lo = Math.min(...pts.map(p => p.temp_c), -85), hi = Math.max(...pts.map(p => p.temp_c), -65);
-  const x = ts => P + (ts - r.from) / (r.to - r.from) * (W - P - 8), y = v => 8 + (hi - v) / (hi - lo) * (H - P - 8);
-  // 데이터가 끊긴 구간은 선을 잇지 않는다 (끊김도 정보)
-  let d = "", prev = null;
-  for (const p of pts) { d += (prev && p.ts - prev.ts <= r.interval_s * 3 ? "L" : "M") + x(p.ts).toFixed(1) + "," + y(p.temp_c).toFixed(1); prev = p; }
-  const ticks = [lo, (lo + hi) / 2, hi].map(v => `<text x="2" y="${y(v) + 4}" font-size="11" fill="currentColor" opacity=".6">${v.toFixed(0)}</text>`).join("");
-  const doors = r.points.filter(p => p.door_open).map(p => `<rect x="${x(p.ts)}" y="8" width="${Math.max(1, x(p.ts + r.interval_s) - x(p.ts))}" height="${H - P - 8}" fill="var(--warn)" opacity=".18"/>`).join("");
-  const line = v => `<line x1="${P}" x2="${W - 8}" y1="${y(v)}" y2="${y(v)}" stroke="currentColor" opacity=".15" stroke-dasharray="4 4"/>`;
-  svg.innerHTML = doors + line(-70) + line(-60) + ticks + `<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
+  if (!pts.length) {
+    svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" fill="var(--ink-3)">이 기간에는 측정 기록이 없습니다</text>`;
+    $("stats").textContent = ""; return;
+  }
+  const vals = pts.map(p => p.temp_c), mx = p => p.temp_max ?? p.temp_c;  // 창 최고값(짧은 상승이 평균에 묻히지 않게)
+  const lo = Math.floor(Math.min(...vals, -84) / 2) * 2, hi = Math.ceil(Math.max(...pts.map(mx), TH.warn + 2) / 2) * 2;
+  const x = ts => L + (ts - r.from) / (r.to - r.from) * (W - L - R), y = v => Tp + (hi - v) / (hi - lo) * (H - Tp - B);
+  let g = "";
+  // 세로 눈금(시간)
+  const span = r.to - r.from, stepT = span <= 3600 ? 600 : span <= 86400 ? 3 * 3600 : span <= 604800 ? 86400 : 5 * 86400;
+  const fmtT = span <= 86400 ? fTime : fDay;
+  for (let t = Math.ceil(r.from / stepT) * stepT; t < r.to; t += stepT)
+    g += `<line x1="${x(t)}" x2="${x(t)}" y1="${Tp}" y2="${H - B}" stroke="var(--rule)"/><text x="${x(t)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--ink-3)">${fmtT.format(new Date(t * 1000))}</text>`;
+  // 가로 눈금(온도)
+  const stepV = hi - lo > 20 ? 10 : hi - lo > 8 ? 4 : 2;
+  for (let v = Math.ceil(lo / stepV) * stepV; v <= hi; v += stepV)
+    g += `<text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--ink-3)">${v}</text>`;
+  // 문 열림 구간
+  if (span <= 86400) for (const p of r.points) if (p.door_open)  // 긴 기간은 띠가 너무 촘촘해 생략
+    g += `<rect x="${x(p.ts)}" y="${Tp}" width="${Math.max(1.5, x(p.ts + r.interval_s) - x(p.ts))}" height="${H - Tp - B}" fill="var(--warn)" opacity=".12"/>`;
+  // 경보 기준선
+  for (const [v, c, label] of [[TH.warn, "--warn", "경고"], [TH.crit, "--crit", "위험"]]) if (v >= lo && v <= hi)
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(${c})" stroke-dasharray="5 4"/><text x="${W - R}" y="${y(v) - 5}" text-anchor="end" font-size="11" fill="var(${c})">${label} ${v}℃</text>`;
+  // 선 + 아래 면. 데이터가 끊긴 구간은 잇지 않는다
+  let line = "", area = "", peak = "", seg = [];
+  const flush = () => {
+    if (!seg.length) return;
+    line += "M" + seg.map(p => `${x(p.ts).toFixed(1)},${y(p.temp_c).toFixed(1)}`).join("L");
+    area += `M${x(seg[0].ts).toFixed(1)},${H - B}` + seg.map(p => `L${x(p.ts).toFixed(1)},${y(p.temp_c).toFixed(1)}`).join("") + `L${x(seg[seg.length - 1].ts).toFixed(1)},${H - B}Z`;
+    peak += "M" + seg.map(p => `${x(p.ts).toFixed(1)},${y(mx(p)).toFixed(1)}`).join("L");
+    seg = [];
+  };
+  for (const p of pts) { if (seg.length && p.ts - seg[seg.length - 1].ts > r.interval_s * 3) flush(); seg.push(p); }
+  flush();
+  g += `<path d="${area}" fill="var(--cryo)" opacity=".08"/>`
+    + (r.interval_s > 60 ? `<path d="${peak}" fill="none" stroke="var(--cryo)" stroke-width="1" opacity=".45"/>` : "")
+    + `<path d="${line}" fill="none" stroke="var(--cryo)" stroke-width="1.75" stroke-linejoin="round"/>`;
+  g += `<line id="hx" y1="${Tp}" y2="${H - B}" stroke="var(--ink-2)" visibility="hidden"/><circle id="hd" r="4" fill="var(--cryo)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>`;
+  svg.innerHTML = g;
+
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const hiP = pts.reduce((a, b) => (mx(b) > mx(a) ? b : a)), loP = pts.reduce((a, b) => (b.temp_c < a.temp_c ? b : a));
+  $("stats").innerHTML = `평균 <b>${avg.toFixed(1)}℃</b> <span>최고 <b>${mx(hiP).toFixed(1)}℃</b> (${T(hiP.ts)})</span> <span>최저 <b>${loP.temp_c.toFixed(1)}℃</b></span>`
+    + `<span>${r.interval_s >= 60 ? Math.round(r.interval_s / 60) + "분" : r.interval_s + "초"} 단위 평균${r.interval_s > 60 ? ", 옅은 선은 구간 최고" : ""}</span>`;
+
+  // 포인터를 따라 값 보기 (마우스·터치)
+  svg.onpointermove = e => {
+    const bx = svg.getBoundingClientRect(), px = (e.clientX - bx.left) * W / bx.width;
+    const ts = r.from + (px - L) / (W - L - R) * (r.to - r.from);
+    let best = pts[0]; for (const p of pts) if (Math.abs(p.ts - ts) < Math.abs(best.ts - ts)) best = p;
+    const cx = x(best.ts), cy = y(best.temp_c);
+    $("hx").setAttribute("x1", cx); $("hx").setAttribute("x2", cx); $("hx").setAttribute("visibility", "visible");
+    $("hd").setAttribute("cx", cx); $("hd").setAttribute("cy", cy); $("hd").setAttribute("visibility", "visible");
+    const tip = $("tip"); tip.hidden = false;
+    tip.textContent = `${T(best.ts)}  평균 ${best.temp_c.toFixed(1)}℃` + (best.temp_max != null && best.temp_max - best.temp_c > 0.05 ? ` · 최고 ${best.temp_max.toFixed(1)}℃` : "") + (best.door_open ? " · 문 열림" : "");
+    tip.style.left = Math.min(bx.width - 70, Math.max(70, cx * bx.width / W)) + "px";
+  };
+  svg.onpointerleave = () => { $("tip").hidden = true; $("hx").setAttribute("visibility", "hidden"); $("hd").setAttribute("visibility", "hidden"); };
 }
 
 function renderEvents(ev) {
-  $("events").innerHTML = ev.events.map(e => `<tr>
-    <td>${t(e.started_at)}</td><td>${esc(e.device_id)}</td><td>${KIND[e.type] || esc(e.type)}</td>
-    <td><span class="badge ${e.severity}">${e.severity}</span></td><td>${e.resolved_at ? t(e.resolved_at) : "<b>진행 중</b>"}</td>
-    <td>${e.peak_value == null ? "-" : e.type === "door" ? e.peak_value.toFixed(0) + "분" : e.peak_value.toFixed(1) + "℃"}</td>
-    <td>${e.acknowledged_by ? `${esc(e.acknowledged_by)}<div class="muted">${t(e.acknowledged_at)}</div>` : `<button data-ack="${e.id}">확인</button>`}</td></tr>`).join("")
-    || `<tr><td colspan="7" class="muted">이력이 없습니다</td></tr>`;
+  const list = ev.events;
+  $("evCount").textContent = list.length ? `최근 ${list.length}건` : "";
+  $("events").innerHTML = list.map(e => {
+    const val = e.peak_value == null ? "" : e.type === "door" ? ` · 최장 ${e.peak_value.toFixed(0)}분` : ` · 최고 ${e.peak_value.toFixed(1)}℃`;
+    const end = e.resolved_at ? `${T(e.resolved_at)} 복구` : `<span class="live">진행 중</span>`;
+    const right = e.acknowledged_by ? `<div class="acked">${esc(e.acknowledged_by)} 확인<br>${T(e.acknowledged_at)}</div>`
+      : `<button class="ack" data-ack="${e.id}">확인 처리</button>`;
+    return `<li class="${e.severity}"><span class="sev"></span>
+      <div><div class="what">${KIND[e.type] || esc(e.type)} ${e.severity === "CRITICAL" ? "위험" : "경고"}<span class="when">${val}</span></div>
+      <div class="when">${T(e.started_at)} 시작 · ${end}</div></div>${right}</li>`;
+  }).join("") || `<li class="empty">기록된 이상이 없습니다.</li>`;
 }
 $("events").onclick = async e => {
   const id = e.target.dataset.ack; if (!id) return;
-  e.target.disabled = true;
-  try { await api(`/api/v1/events/${id}/ack`, { method: "POST" }); refresh(); } catch { e.target.disabled = false; }
+  e.target.disabled = true; e.target.textContent = "처리 중";
+  try { await Api.ack(id); refresh(); } catch { e.target.disabled = false; e.target.textContent = "확인 처리"; }
 };
 
 async function refresh() {
   try {
-    const st = await api("/api/v1/status");
-    renderDevices(st);
-    const dev = $("dev").value, now = st.server_time;
+    const st = await Api.get("/api/v1/status");
+    renderHero(st);
+    if (!dev) return;
+    const now = st.server_time;
     const [rd, ev] = await Promise.all([
-      dev ? api(`/api/v1/readings?device_id=${encodeURIComponent(dev)}&from=${now - +$("range").value}&to=${now}`) : null,
-      api("/api/v1/events?limit=50"),
+      Api.get(`/api/v1/readings?device_id=${encodeURIComponent(dev)}&from=${now - range}&to=${now}`),
+      Api.get("/api/v1/events?limit=30"),
     ]);
-    if (rd) renderChart(rd);
-    renderEvents(ev);
+    renderChart(rd); renderEvents(ev);
     $("err").textContent = "";
+    $("foot").textContent = `${fFull.format(new Date())}에 갱신 · 30초마다 자동 갱신`;
   } catch (x) {
-    if (x.message !== "login") $("err").textContent = "서버 연결 오류 (" + x.message + ") — 30초 후 재시도";
+    if (x.message !== "login") $("err").textContent = "서버에 연결하지 못했습니다. 30초 후 다시 시도합니다.";
   }
 }
-$("dev").onchange = $("range").onchange = refresh;
+addEventListener("resize", () => { if (lastChart) renderChart(lastChart); });
 
 let timer;
 async function start() {
-  try { const me = await api("/api/v1/auth/me"); $("who").textContent = `${me.username} (${me.role})`; } catch { return; }
+  let me;
+  try { me = await Api.get("/api/v1/auth/me"); } catch { return; }
+  $("who").textContent = DEMO ? "" : me.username;
+  $("demoFlag").hidden = !DEMO;
+  $("logout").textContent = DEMO ? "데모 종료" : "로그아웃";
+  if (DEMO) $("range").querySelector('[data-s="604800"]').click();  // 데모는 사건이 보이도록 7일부터
+  if (me.role === "admin" || DEMO) {
+    try { const s = await Api.get("/api/v1/settings"); TH = { ...TH, warn: s.temp_warn_c, crit: s.temp_crit_c }; } catch {}
+  }
   $("login").hidden = true; $("app").hidden = false;
   refresh(); clearInterval(timer); timer = setInterval(refresh, POLL_MS);
 }
-store.get("access") ? start() : showLoginSafe();
-function showLoginSafe() { try { showLogin(); } catch {} }
+if (new URLSearchParams(location.search).has("demo")) { DEMO = true; start(); }
+else if (store.get("access")) start();
+else toLogin();
 </script>
 </body>
 </html>

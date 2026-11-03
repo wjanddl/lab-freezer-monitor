@@ -43,10 +43,10 @@
 
 ### `GET /api/v1/readings?device_id=freezer-01&from=&to=` — 그래프
 - `from`, `to`: epoch 초. 기본은 최근 24시간. 최대 기간 366일.
-- 점이 500개를 넘지 않도록 `interval_s` 초 단위로 묶는다. `temp_c`는 구간 평균, `door_open`은 구간 안에서 한 번이라도 열렸으면 `true`. `ts`는 구간 시작 시각.
+- 점이 500개를 넘지 않도록 `interval_s` 초 단위로 묶는다. `temp_c`는 구간 평균, `temp_max`는 구간 최고(평균에 묻히는 짧은 상승 확인용), `door_open`은 구간 안에서 한 번이라도 열렸으면 `true`. `ts`는 구간 시작 시각.
 ```json
 {"device_id": "freezer-01", "from": 1793614054, "to": 1793700454, "interval_s": 173,
- "points": [{"ts": 1793614054, "temp_c": -79.9, "door_open": false}]}
+ "points": [{"ts": 1793614054, "temp_c": -79.9, "temp_max": -79.6, "door_open": false}]}
 ```
 - 데이터가 없는 구간은 점이 없다(빈 칸으로 그리면 됨). 온도 없이 도어 값만 있는 점은 `temp_c: null`.
 

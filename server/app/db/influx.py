@@ -51,9 +51,10 @@ def _rfc(epoch: int) -> str:
 
 
 async def series(device_id: str, start: int, stop: int, every_s: int) -> list[dict]:
-    """[start, stop) 구간을 every_s 초 창으로 묶은 시계열 [{"ts", "temp_c", "door_open"}] (ts 오름차순).
+    """[start, stop) 구간을 every_s 초 창으로 묶은 시계열 [{"ts", "temp_c", "temp_max", "door_open"}] (ts 오름차순).
 
-    temp_c = 창 평균(값 없으면 None), door_open = 창 안에서 한 번이라도 열렸으면 True. ts = 창 시작.
+    temp_c = 창 평균, temp_max = 창 최고(평균에 묻히는 짧은 상승을 놓치지 않게), 값 없으면 None.
+    door_open = 창 안에서 한 번이라도 열렸으면 True. ts = 창 시작.
     device_id는 호출자가 패턴 검증한 값만 넘긴다 (Flux 문자열에 들어감).
     """
     base = (
@@ -62,12 +63,16 @@ async def series(device_id: str, start: int, stop: int, every_s: int) -> list[di
     )
     win = f'aggregateWindow(every: {every_s}s, timeSrc: "_start", createEmpty: false'
     temp = await _query(f'{base} |> filter(fn: (r) => r._field == "temp_c") |> {win}, fn: mean)')
+    tmax = await _query(f'{base} |> filter(fn: (r) => r._field == "temp_c") |> {win}, fn: max)')
     door = await _query(f'{base} |> filter(fn: (r) => r._field == "door_open") |> toInt() |> {win}, fn: max)')
     pts = {}
+    empty = lambda: {"temp_c": None, "temp_max": None, "door_open": None}
     for d in temp:
-        pts.setdefault(_ts(d["_time"]), {"temp_c": None, "door_open": None})["temp_c"] = float(d["_value"])
+        pts.setdefault(_ts(d["_time"]), empty())["temp_c"] = float(d["_value"])
+    for d in tmax:
+        pts.setdefault(_ts(d["_time"]), empty())["temp_max"] = float(d["_value"])
     for d in door:
-        pts.setdefault(_ts(d["_time"]), {"temp_c": None, "door_open": None})["door_open"] = d["_value"] == "1"
+        pts.setdefault(_ts(d["_time"]), empty())["door_open"] = d["_value"] == "1"
     return [{"ts": t, **pts[t]} for t in sorted(pts)]
 
 

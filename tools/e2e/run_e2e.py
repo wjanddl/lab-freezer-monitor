@@ -94,6 +94,7 @@ temps = [p["temp_c"] for p in r["points"]]
 check("readings: 1180점 → 500점 이하로 다운샘플", r["interval_s"] == 15 and 400 <= len(temps) <= 500,
       f"interval={r['interval_s']} n={len(temps)}")
 check("readings: 창 평균값 범위 정상", all(-80.6 <= t <= -79.4 for t in temps), f"min={min(temps)} max={max(temps)}")
+check("readings: 창 최고값(temp_max) >= 평균", all(p["temp_max"] >= p["temp_c"] for p in r["points"]))
 
 # 1) 정상
 send_for(6, -79.8)
