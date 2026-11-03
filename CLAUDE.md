@@ -22,6 +22,7 @@
 ## 디렉터리 구조
 /server    FastAPI 앱 (app/, tests/, Dockerfile)
 /firmware  (사용 안 함: ESP32 없음, 2026-11-03)
+/sensor    Pi 센서 리더 (MAX31865 SPI 드라이버, 전송/버퍼, 가짜 SPI 테스트, systemd 유닛)
 /pi-setup  Pi 네트워크/운영 스크립트 (AP, 방화벽, Tailscale, 백업)  ← Claude Code는 Pi에서 실행 검증 불가
 /tools     센서 없이 테스트하는 시뮬레이터
 /docs      API.md, NETWORK.md, WIRING.md, OPERATIONS.md

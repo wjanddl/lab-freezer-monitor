@@ -1,0 +1,14 @@
+[Unit]
+Description=Freezer 센서 리더 (MAX31865 SPI → 서버)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+User=kobot
+WorkingDirectory=/home/kobot/freezer-monitor/sensor
+ExecStart=/home/kobot/freezer-sensor-venv/bin/python -u reader.py /home/kobot/freezer-monitor/sensor/config.json
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

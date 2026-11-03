@@ -6,3 +6,4 @@ __pycache__/
 .venv/
 firmware/include/config.h
 firmware/.pio/
+sensor/config.json

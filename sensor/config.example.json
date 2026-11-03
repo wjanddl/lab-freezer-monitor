@@ -1,0 +1,16 @@
+{
+  "base": "http://localhost:8000",
+  "device_id": "freezer-01",
+  "api_key": "여기에 create-device로 받은 장치 키 (이 파일은 커밋 금지, 권한 600)",
+  "interval_s": 10,
+  "spi_bus": 0,
+  "spi_device": 0,
+  "wires": 3,
+  "rref": 430.0,
+  "r0": 100.0,
+  "filter_hz": 60,
+  "door_gpio": null,
+  "door_open_when_pressed": false,
+  "buffer_max": 8640,
+  "timeout_s": 5
+}
