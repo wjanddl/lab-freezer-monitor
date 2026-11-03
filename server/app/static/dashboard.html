@@ -165,7 +165,8 @@ const store = { get: k => { try { return sessionStorage.getItem(k); } catch { re
 let TH = { warn: -70, crit: -60, low: -85 };
 
 // ---------- 데이터 소스: 실제 API 또는 데모(브라우저에서만 생성, 서버에 저장 안 함) ----------
-let DEMO = false;
+const PUBLIC_DEMO = false;  // tools/build_public_demo.py가 공개 데모 페이지를 만들 때 true로 바꾼다 (네트워크 요청 없음)
+let DEMO = PUBLIC_DEMO;
 const Api = {
   async login(u, p) { saveTokens(await post("/api/v1/auth/login", { username: u, password: p })); },
   async get(path) { return DEMO ? Demo.get(path) : authed(path); },
@@ -423,7 +424,8 @@ async function start() {
   $("login").hidden = true; $("app").hidden = false;
   refresh(); clearInterval(timer); timer = setInterval(refresh, POLL_MS);
 }
-if (new URLSearchParams(location.search).has("demo")) { DEMO = true; start(); }
+if (PUBLIC_DEMO) { $("logout").hidden = true; start(); }
+else if (new URLSearchParams(location.search).has("demo")) { DEMO = true; start(); }
 else if (store.get("access")) start();
 else toLogin();
 </script>
