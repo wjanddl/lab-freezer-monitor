@@ -42,12 +42,16 @@ docker-compose.yml, .env.example, README.md
 9. 코드 주석과 문서는 한국어, 식별자는 영어.
 
 ## 진행 상태 (2026-10-06 기준)
-- 완료: 1단계(골격/인프라), 2단계(수신 API), 3단계(이상 판정 엔진, settings API), 4단계(텔레그램 알림), 5단계(인증/JWT) — pytest 50개 통과
+- 완료: 1단계(골격/인프라), 2단계(수신 API), 3단계(이상 판정 엔진, settings API), 4단계(텔레그램 알림), 5단계(인증/JWT), 6단계(조회 API), 9단계(시뮬레이터/E2E) — pytest 65개 + E2E 22개 통과
 - 5단계: 계정은 CLI로만 생성(`docker compose run --rm api python -m app.cli create-user --username X --role admin|viewer`, 비밀번호는 프롬프트).
   역할 admin/viewer, access 1시간 + refresh 14일(회전, 재사용 시 전체 폐기), 로그인 5회 실패 시 15분 잠금(429). 엔드포인트: /api/v1/auth/{login,refresh,logout,me}. settings API는 admin 전용
 - .env 편집 주의: PowerShell 5.1의 Get-Content/Set-Content는 UTF-8 한글을 깨뜨리고 BOM을 붙임 → 메모장(UTF-8) 또는 [IO.File]::WriteAllLines + UTF8Encoding($false) 사용
 - 4단계: 실제 단체방 수신 확인(WARNING/복구). 발송 실패 시 즉시 재시도 2회 + 다음 틱 재시도. 이메일 폴백(SMTP)은 보류(필요 시 추가)
-- 다음: 6(프론트 API) → 9(시뮬레이터/E2E). 7(펌웨어)·8(Pi 운영)은 하드웨어 도착 후.
+- 6단계: 조회 API(/status, /readings, /events, /events/{id}/ack, /devices), docs/API.md. 모두 로그인 필요(viewer 가능), CORS는 CORS_ORIGINS
+- Pi(100.80.80.16, Tailscale) 배포 완료: ~/freezer-monitor에서 docker compose. OLED는 ~/freezer-oled/live_display.py(viewer 계정 oled, 서비스 등록 전)
+- 생존신호: HEALTHCHECK_URL에 60초마다 ping(틱+Influx 정상), 아니면 /fail. Pi .env에는 아직 비어 있음(사용자가 healthchecks.io에서 생성 필요)
+- 9단계: tools/simulate.py(측정값 전송 CLI), E2E는 `powershell -File tools/e2e/run.ps1` (별도 프로젝트 freezer-e2e, 가짜 텔레그램, 끝나면 볼륨 삭제. 운영 데이터/단체방 영향 없음)
+- 다음: 7(펌웨어)·8(Pi 운영)은 하드웨어 도착 후.
 - 개발 편의: tools/send.ps1 (`$key` 설정 후 `. .\tools\send.ps1; Send -79.8`)로 측정값 전송 테스트
 - 검증 방법: `docker compose run --rm api pytest -q`, README 참고
 
@@ -60,3 +64,4 @@ docker-compose.yml, .env.example, README.md
 - 범위 밖 temp_c는 거부하지 않고 저장하되 temp_c 필드는 버리고 sensor_fault에 0x100 비트를 추가
 - Tailscale은 무료 플랜 수준으로만 (제한은 8단계에서 최신 문서 확인 후 접속 대상 조정)
 - Pi 사양/OS 미정 (8단계 전에 확인 필요)
+- (2026-11-03) 센서 연결 전 임시: Pi 설정 DB의 remind_crit_min을 30→1440(하루 1회)으로 변경. 남아 있는 freezer-01 무응답 CRITICAL 재알림 폭주 방지. **센서 연결 시 PUT /api/v1/settings {"remind_crit_min": 30}으로 되돌릴 것**

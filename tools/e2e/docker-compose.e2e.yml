@@ -1,0 +1,62 @@
+# E2E 전용 스택 (운영 데이터/텔레그램과 완전히 분리). 실행: tools/e2e/run.ps1 참고
+# 이 폴더에 .env가 없으므로 운영 비밀값은 읽지 않는다. 볼륨은 이 프로젝트 전용(down -v로 삭제).
+services:
+  influxdb:
+    image: influxdb:2.7
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: e2e
+      DOCKER_INFLUXDB_INIT_PASSWORD: e2e-password
+      DOCKER_INFLUXDB_INIT_ORG: lab
+      DOCKER_INFLUXDB_INIT_BUCKET: freezer
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: e2e-token
+    volumes:
+      - influx:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 5s
+      retries: 20
+
+  telegram:
+    image: python:3.11-slim
+    command: ["python", "-u", "/e2e/mock_telegram.py"]
+    volumes:
+      - ./:/e2e:ro
+
+  api:
+    build: ../../server
+    environment: &env
+      INFLUX_TOKEN: e2e-token
+      JWT_SECRET: e2e-jwt-secret-e2e-jwt-secret-e2e-jwt
+      TELEGRAM_BOT_TOKEN: e2e-dummy
+      TELEGRAM_CHAT_ID: e2e
+      TELEGRAM_API_BASE: http://telegram:8081
+      TELEGRAM_RETRIES: 0
+    volumes:
+      - sqlite:/data/sqlite
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      telegram:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
+      interval: 3s
+      retries: 20
+
+  runner:
+    build: ../../server
+    profiles: ["run"]
+    command: ["python", "-u", "/e2e/run_e2e.py"]
+    environment: *env
+    volumes:
+      - sqlite:/data/sqlite
+      - ./:/e2e:ro
+      - ../simulate.py:/e2e_tools/simulate.py:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  influx:
+  sqlite:

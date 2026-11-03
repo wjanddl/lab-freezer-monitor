@@ -1,0 +1,14 @@
+[Unit]
+Description=Freezer OLED 실시간 표시
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+User=kobot
+WorkingDirectory=/home/kobot/freezer-oled
+ExecStart=/home/kobot/freezer-oled/.venv/bin/python -u live_display.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

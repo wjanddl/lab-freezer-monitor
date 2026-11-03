@@ -12,9 +12,10 @@ from dataclasses import asdict
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from app.db import sqlite
+from app.config import get_settings
+from app.db import influx, sqlite
 from app.models.alert_settings import AlertSettings
-from app.services import alert_settings, engine, notify
+from app.services import alert_settings, engine, heartbeat, notify
 from app.services.engine import State
 from app.services.ingest import Point
 
@@ -126,10 +127,16 @@ async def tick(now: float, started_at: float) -> int:
 
 async def run_forever() -> None:
     started_at = time.time()
+    last_beat = 0.0
     while True:
-        interval = 30
+        interval, ok = 30, False
         try:
             interval = await tick(time.time(), started_at)
+            ok = await influx.ping()
         except Exception:
             log.exception("monitor tick failed")
+        if time.time() - last_beat >= get_settings().heartbeat_interval_s:
+            # 틱 성공 + Influx 정상일 때만 성공 ping, 아니면 /fail (healthchecks.io가 알림)
+            await heartbeat.ping(ok)
+            last_beat = time.time()
         await asyncio.sleep(interval)

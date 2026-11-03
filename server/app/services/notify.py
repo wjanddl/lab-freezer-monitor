@@ -21,7 +21,7 @@ async def send(text: str) -> bool:
     if s.dashboard_url:
         text += f"\n{s.dashboard_url}"
     body = {"chat_id": s.telegram_chat_id, "text": text[:MAX_LEN]}
-    url = f"https://api.telegram.org/bot{s.telegram_bot_token}/sendMessage"
+    url = f"{s.telegram_api_base}/bot{s.telegram_bot_token}/sendMessage"
     for attempt in range(1 + s.telegram_retries):
         if attempt:
             await asyncio.sleep(s.telegram_retry_delay_s)

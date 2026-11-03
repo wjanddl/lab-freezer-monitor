@@ -1,0 +1,13 @@
+[Unit]
+Description=Freezer API 포트 외부망 차단 (DOCKER-USER)
+After=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# 스크립트는 root 소유로 설치(kobot이 수정해 root로 실행되는 것 방지)
+ExecStart=/bin/sh /usr/local/sbin/freezer-port-guard.sh
+
+[Install]
+WantedBy=multi-user.target docker.service
