@@ -32,6 +32,8 @@ services:
       TELEGRAM_CHAT_ID: e2e
       TELEGRAM_API_BASE: http://telegram:8081
       TELEGRAM_RETRIES: 0
+    ports:
+      - "127.0.0.1:18000:8000"   # 노트북에서 대시보드 눈으로 확인용 (localhost만)
     volumes:
       - sqlite:/data/sqlite
     depends_on:

@@ -42,11 +42,12 @@ docker-compose.yml, .env.example, README.md
 9. 코드 주석과 문서는 한국어, 식별자는 영어.
 
 ## 진행 상태 (2026-10-06 기준)
-- 완료: 1단계(골격/인프라), 2단계(수신 API), 3단계(이상 판정 엔진, settings API), 4단계(텔레그램 알림), 5단계(인증/JWT), 6단계(조회 API), 9단계(시뮬레이터/E2E) — pytest 65개 + E2E 22개 통과
+- 완료: 1단계(골격/인프라), 2단계(수신 API), 3단계(이상 판정 엔진, settings API), 4단계(텔레그램 알림), 5단계(인증/JWT), 6단계(조회 API), 9단계(시뮬레이터/E2E) — pytest 66개 + E2E 22개 통과
 - 5단계: 계정은 CLI로만 생성(`docker compose run --rm api python -m app.cli create-user --username X --role admin|viewer`, 비밀번호는 프롬프트).
   역할 admin/viewer, access 1시간 + refresh 14일(회전, 재사용 시 전체 폐기), 로그인 5회 실패 시 15분 잠금(429). 엔드포인트: /api/v1/auth/{login,refresh,logout,me}. settings API는 admin 전용
 - .env 편집 주의: PowerShell 5.1의 Get-Content/Set-Content는 UTF-8 한글을 깨뜨리고 BOM을 붙임 → 메모장(UTF-8) 또는 [IO.File]::WriteAllLines + UTF8Encoding($false) 사용
 - 4단계: 실제 단체방 수신 확인(WARNING/복구). 발송 실패 시 즉시 재시도 2회 + 다음 틱 재시도. 이메일 폴백(SMTP)은 보류(필요 시 추가)
+- 웹 대시보드: http://<Pi>:8000/dashboard (정적 1장, 로그인 후 상태/그래프/이력/확인)
 - 6단계: 조회 API(/status, /readings, /events, /events/{id}/ack, /devices), docs/API.md. 모두 로그인 필요(viewer 가능), CORS는 CORS_ORIGINS
 - Pi(100.80.80.16, Tailscale) 배포 완료: ~/freezer-monitor에서 docker compose. OLED는 ~/freezer-oled/live_display.py(viewer 계정 oled, 서비스 등록 전)
 - 생존신호: HEALTHCHECK_URL에 60초마다 ping(틱+Influx 정상), 아니면 /fail. Pi .env에는 아직 비어 있음(사용자가 healthchecks.io에서 생성 필요)

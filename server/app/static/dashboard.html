@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>냉동고 모니터</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1b1f24; --muted:#667085; --line:#e4e7ec;
+          --ok:#12b76a; --warn:#f79009; --crit:#f04438; --accent:#2e90fa; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1115; --card:#181b21; --fg:#e6e8eb; --muted:#98a2b3; --line:#2a2f37; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }  /* #login의 display:grid가 hidden 속성을 덮지 않게 */
+  body { margin:0; font:15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--fg); }
+  header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:17px; margin:0; }
+  main { max-width:960px; margin:0 auto; padding:16px; display:grid; gap:16px; }
+  main > * { min-width: 0; }  /* 표가 그리드 칸을 넓혀 폰에서 가로 스크롤 생기는 것 방지 */
+  td { white-space: nowrap; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .muted { color:var(--muted); font-size:13px; }
+  .dev { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+  .temp { font-size:40px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .badge { padding:3px 10px; border-radius:999px; font-weight:600; font-size:13px; color:#fff; }
+  .OK { background:var(--ok); } .WARNING { background:var(--warn); } .CRITICAL { background:var(--crit); } .OFF { background:var(--muted); }
+  button, select, input { font:inherit; padding:6px 10px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:6px 4px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .scroll { overflow-x:auto; }
+  svg { width:100%; height:220px; display:block; }
+  #login { max-width:320px; margin:60px auto; display:grid; gap:10px; }
+  .err { color:var(--crit); font-size:13px; min-height:1em; }
+</style>
+</head>
+<body>
+<form id="login" class="card" hidden>
+  <h1 style="margin:0">냉동고 모니터 로그인</h1>
+  <input id="u" placeholder="아이디" autocomplete="username" required>
+  <input id="p" type="password" placeholder="비밀번호" autocomplete="current-password" required>
+  <button class="primary">로그인</button>
+  <div class="err" id="lerr"></div>
+</form>
+
+<div id="app" hidden>
+  <header>
+    <h1>냉동고 모니터</h1>
+    <div><span class="muted" id="who"></span> <button id="logout">로그아웃</button></div>
+  </header>
+  <main>
+    <div class="err" id="err"></div>
+    <section id="devices"></section>
+    <section class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <strong>온도 추이</strong>
+        <span><select id="dev"></select>
+        <select id="range"><option value="3600">1시간</option><option value="86400" selected>24시간</option><option value="604800">7일</option></select></span>
+      </div>
+      <svg id="chart" role="img" aria-label="온도 그래프"></svg>
+      <div class="muted" id="chartinfo"></div>
+    </section>
+    <section class="card">
+      <strong>이상 이력</strong>
+      <div class="scroll"><table><thead><tr><th>시작</th><th>장치</th><th>종류</th><th>단계</th><th>해제</th><th>값</th><th>확인</th></tr></thead>
+      <tbody id="events"></tbody></table></div>
+    </section>
+  </main>
+</div>
+
+<script>
+// 시각은 서버가 UTC epoch 초로 주고, 표시만 Asia/Seoul
+const POLL_MS = 30000;
+const KIND = { temp: "온도", door: "문 열림", sensor: "센서 장애", offline: "장치 무응답" };
+const fmt = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+const t = s => s ? fmt.format(new Date(s * 1000)) : "-";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+// 토큰은 탭을 닫으면 사라지도록 sessionStorage
+const store = { get: k => { try { return sessionStorage.getItem(k); } catch { return null; } },
+                set: (k, v) => { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch {} } };
+
+async function post(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) throw Object.assign(new Error((await r.json().catch(() => ({}))).detail || r.status), { status: r.status });
+  return r.json();
+}
+function saveTokens(j) { store.set("access", j.access_token); store.set("refresh", j.refresh_token); }
+
+async function api(path, opts = {}, retry = true) {
+  const r = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), Authorization: "Bearer " + store.get("access") } });
+  if (r.status === 401 && retry && store.get("refresh")) {
+    try { saveTokens(await post("/api/v1/auth/refresh", { refresh_token: store.get("refresh") })); }
+    catch { return showLogin(); }
+    return api(path, opts, false);
+  }
+  if (r.status === 401) return showLogin();
+  if (!r.ok) throw new Error(`${path} → ${r.status}`);
+  return r.json();
+}
+
+function showLogin() { store.set("access", null); store.set("refresh", null); $("app").hidden = true; $("login").hidden = false; throw new Error("login"); }
+
+$("login").onsubmit = async e => {
+  e.preventDefault(); $("lerr").textContent = "";
+  try { saveTokens(await post("/api/v1/auth/login", { username: $("u").value, password: $("p").value })); $("p").value = ""; start(); }
+  catch (x) { $("lerr").textContent = x.status === 429 ? "로그인 실패가 많아 잠시 잠겼습니다" : "아이디 또는 비밀번호가 틀렸습니다"; }
+};
+$("logout").onclick = async () => { try { await post("/api/v1/auth/logout", { refresh_token: store.get("refresh") }); } catch {} try { showLogin(); } catch {} };
+
+function renderDevices(st) {
+  const sel = $("dev"), cur = sel.value;
+  sel.innerHTML = st.devices.map(d => `<option>${esc(d.device_id)}</option>`).join("");
+  if (cur) sel.value = cur;
+  $("devices").innerHTML = st.devices.map(d => {
+    const r = d.reading, stale = !r || st.server_time - r.ts > 180;
+    const temp = stale ? "NO DATA" : r.temp_c == null ? "센서 오류" : r.temp_c.toFixed(1) + "℃";
+    const alarms = d.alarms.map(a => `${KIND[a.kind] || esc(a.kind)} ${a.level} (${t(a.since)}~)`).join(", ");
+    return `<div class="card dev">
+      <div><div class="muted">${esc(d.device_id)}</div><div class="temp">${temp}</div></div>
+      <div><span class="badge ${d.alarm_level}">${d.alarm_level}</span>
+        <span class="badge ${d.online ? "OK" : "OFF"}">${d.online ? "온라인" : "오프라인"}</span>
+        <div class="muted">문: ${r && r.door_open != null ? (r.door_open ? "열림" : "닫힘") : "-"} · 측정 ${t(r && r.ts)} · 수신 ${t(d.last_seen)}</div>
+        ${alarms ? `<div class="muted">진행 중: ${alarms}</div>` : ""}</div></div>`;
+  }).join("") || `<div class="card muted">등록된 장치가 없습니다</div>`;
+}
+
+function renderChart(r) {
+  const svg = $("chart"), W = svg.clientWidth || 600, H = 220, P = 32;  // 실제 폭 사용 (글자 왜곡 없이 꽉 차게)
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const pts = r.points.filter(p => p.temp_c != null);
+  $("chartinfo").textContent = `${t(r.from)} ~ ${t(r.to)} · ${r.interval_s}초 평균 · ${pts.length}점`;
+  if (!pts.length) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" fill="currentColor" opacity=".6">데이터 없음</text>`; return; }
+  const lo = Math.min(...pts.map(p => p.temp_c), -85), hi = Math.max(...pts.map(p => p.temp_c), -65);
+  const x = ts => P + (ts - r.from) / (r.to - r.from) * (W - P - 8), y = v => 8 + (hi - v) / (hi - lo) * (H - P - 8);
+  // 데이터가 끊긴 구간은 선을 잇지 않는다 (끊김도 정보)
+  let d = "", prev = null;
+  for (const p of pts) { d += (prev && p.ts - prev.ts <= r.interval_s * 3 ? "L" : "M") + x(p.ts).toFixed(1) + "," + y(p.temp_c).toFixed(1); prev = p; }
+  const ticks = [lo, (lo + hi) / 2, hi].map(v => `<text x="2" y="${y(v) + 4}" font-size="11" fill="currentColor" opacity=".6">${v.toFixed(0)}</text>`).join("");
+  const doors = r.points.filter(p => p.door_open).map(p => `<rect x="${x(p.ts)}" y="8" width="${Math.max(1, x(p.ts + r.interval_s) - x(p.ts))}" height="${H - P - 8}" fill="var(--warn)" opacity=".18"/>`).join("");
+  const line = v => `<line x1="${P}" x2="${W - 8}" y1="${y(v)}" y2="${y(v)}" stroke="currentColor" opacity=".15" stroke-dasharray="4 4"/>`;
+  svg.innerHTML = doors + line(-70) + line(-60) + ticks + `<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
+}
+
+function renderEvents(ev) {
+  $("events").innerHTML = ev.events.map(e => `<tr>
+    <td>${t(e.started_at)}</td><td>${esc(e.device_id)}</td><td>${KIND[e.type] || esc(e.type)}</td>
+    <td><span class="badge ${e.severity}">${e.severity}</span></td><td>${e.resolved_at ? t(e.resolved_at) : "<b>진행 중</b>"}</td>
+    <td>${e.peak_value == null ? "-" : e.type === "door" ? e.peak_value.toFixed(0) + "분" : e.peak_value.toFixed(1) + "℃"}</td>
+    <td>${e.acknowledged_by ? `${esc(e.acknowledged_by)}<div class="muted">${t(e.acknowledged_at)}</div>` : `<button data-ack="${e.id}">확인</button>`}</td></tr>`).join("")
+    || `<tr><td colspan="7" class="muted">이력이 없습니다</td></tr>`;
+}
+$("events").onclick = async e => {
+  const id = e.target.dataset.ack; if (!id) return;
+  e.target.disabled = true;
+  try { await api(`/api/v1/events/${id}/ack`, { method: "POST" }); refresh(); } catch { e.target.disabled = false; }
+};
+
+async function refresh() {
+  try {
+    const st = await api("/api/v1/status");
+    renderDevices(st);
+    const dev = $("dev").value, now = st.server_time;
+    const [rd, ev] = await Promise.all([
+      dev ? api(`/api/v1/readings?device_id=${encodeURIComponent(dev)}&from=${now - +$("range").value}&to=${now}`) : null,
+      api("/api/v1/events?limit=50"),
+    ]);
+    if (rd) renderChart(rd);
+    renderEvents(ev);
+    $("err").textContent = "";
+  } catch (x) {
+    if (x.message !== "login") $("err").textContent = "서버 연결 오류 (" + x.message + ") — 30초 후 재시도";
+  }
+}
+$("dev").onchange = $("range").onchange = refresh;
+
+let timer;
+async function start() {
+  try { const me = await api("/api/v1/auth/me"); $("who").textContent = `${me.username} (${me.role})`; } catch { return; }
+  $("login").hidden = true; $("app").hidden = false;
+  refresh(); clearInterval(timer); timer = setInterval(refresh, POLL_MS);
+}
+store.get("access") ? start() : showLoginSafe();
+function showLoginSafe() { try { showLogin(); } catch {} }
+</script>
+</body>
+</html>

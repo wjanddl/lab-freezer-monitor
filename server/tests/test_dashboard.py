@@ -142,3 +142,9 @@ def test_all_read_endpoints_require_auth(c):
     for path in ("/api/v1/devices", "/api/v1/events", "/api/v1/readings?device_id=freezer-01"):
         assert anon.get(path).status_code == 401
     assert anon.post("/api/v1/events/1/ack").status_code == 401
+
+
+def test_dashboard_page_served_without_auth():
+    r = TestClient(app).get("/dashboard")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/html")
+    assert "/api/v1/status" in r.text  # 페이지는 공개, 데이터는 API(JWT)로
