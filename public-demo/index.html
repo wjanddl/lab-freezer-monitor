@@ -213,7 +213,7 @@ const Demo = (() => {
   ];
   return {
     get(path) {
-      const u = new URL(path, location.origin), n = Math.floor(Date.now() / 1000);
+      const u = new URL(path, "file:///"), n = Math.floor(Date.now() / 1000);  // origin이 null(file:// 등)이어도 경로만 파싱
       if (u.pathname.endsWith("/status")) {
         const last = pts[pts.length - 1];
         return { server_time: n, devices: [{ device_id: "freezer-01", last_seen: n - 8, online: true, alarm_level: "OK", alarms: [],
@@ -417,12 +417,13 @@ async function start() {
   $("who").textContent = DEMO ? "" : me.username;
   $("demoFlag").hidden = !DEMO;
   $("logout").textContent = DEMO ? "데모 종료" : "로그아웃";
-  if (DEMO) $("range").querySelector('[data-s="604800"]').click();  // 데모는 사건이 보이도록 7일부터
   if (me.role === "admin" || DEMO) {
     try { const s = await Api.get("/api/v1/settings"); TH = { ...TH, warn: s.temp_warn_c, crit: s.temp_crit_c }; } catch {}
   }
-  $("login").hidden = true; $("app").hidden = false;
-  refresh(); clearInterval(timer); timer = setInterval(refresh, POLL_MS);
+  $("login").hidden = true; $("app").hidden = false;  // 보이게 한 뒤 그려야 SVG 폭(clientWidth)이 맞다
+  if (DEMO) $("range").querySelector('[data-s="604800"]').click();  // 데모는 사건이 보이도록 7일부터(클릭이 refresh 호출)
+  else refresh();
+  clearInterval(timer); timer = setInterval(refresh, POLL_MS);
 }
 if (PUBLIC_DEMO) { $("logout").hidden = true; start(); }
 else if (new URLSearchParams(location.search).has("demo")) { DEMO = true; start(); }

@@ -7,3 +7,5 @@ __pycache__/
 firmware/include/config.h
 firmware/.pio/
 sensor/config.json
+firebase-debug.log
+.firebase/
