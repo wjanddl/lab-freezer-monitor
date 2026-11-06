@@ -5,130 +5,104 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>초저온 냉동고</title>
 <style>
-  /* 밝은 여백 + 큰 글자 + 둥근 카드. 강조는 어두운 '현재 온도' 카드 한 곳에만 */
-  :root {
-    --paper: #f5f6f8; --surface: #ffffff; --ink: #111418; --ink-2: #5b6470; --ink-3: #9aa3ad;
-    --rule: #e6e9ed; --cryo: #2f6fde; --cryo-soft: #dfe9fb; --warn: #c27400; --warn-soft: #fbedd5;
-    --crit: #d1342c; --crit-soft: #fbe0de; --ok: #1f8a5b;
-    --bar: rgba(245, 246, 248, .72); --shadow: 0 1px 2px rgba(17, 20, 24, .04), 0 8px 24px rgba(17, 20, 24, .06);
-    --r-lg: 28px; --r-md: 20px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --paper: #000000; --surface: #16181c; --ink: #f2f4f7; --ink-2: #a3abb5; --ink-3: #6c7480;
-      --rule: #262a30; --cryo: #6aa3ff; --cryo-soft: #1a2a45; --warn: #f0a63a; --warn-soft: #3a2b12;
-      --crit: #ff6a5f; --crit-soft: #3d1c1a; --ok: #43c787;
-      --bar: rgba(0, 0, 0, .62); --shadow: none;
-    }
+  /* 에디토리얼: 박스 없이 여백·가는 선·아주 큰 숫자로만 구성. 강조는 현재 온도 하나 */
+  :root {  /* 검정 바탕 고정 (모니터링 화면은 항상 같은 모습) */
+    color-scheme: dark;
+    --paper: #000000; --ink: #f2f2ee; --ink-2: #a2a29b; --ink-3: #66665f; --rule: #f2f2ee; --hair: #262624;
+    --cryo: #f2f2ee; --cryo-soft: #262624; --warn: #f0a23a; --crit: #ff4b3e; --ok: #f2f2ee; --surface: #000000;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "D2Coding", monospace;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   html { -webkit-text-size-adjust: 100%; word-break: keep-all; }  /* 한국어는 어절 단위로 줄바꿈 */
   body { margin: 0; background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased;
-         font: 400 16px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", system-ui, "Segoe UI", sans-serif;  /* 외부 폰트 없음 */ }
+         font: 400 15px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", system-ui, "Segoe UI", sans-serif;  /* 외부 폰트 없음 */ }
   .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
   button, select, input { font: inherit; color: inherit; }
-  :focus-visible { outline: 3px solid var(--cryo); outline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  .wrap { padding: 0 clamp(16px, 4vw, 56px); }
 
-  /* 상단 바: 스크롤해도 따라오는 반투명 바 */
-  .top { position: sticky; top: 0; z-index: 10; background: var(--bar); border-bottom: 1px solid var(--rule);
-         -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); }
-  .top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 56px; }
-  .brand { font-weight: 700; font-size: 17px; letter-spacing: -0.02em; white-space: nowrap; }
-  .brand small { font-weight: 500; color: var(--ink-2); margin-left: 10px; font-size: 14px; }
-  .brand select { margin-left: 8px; border: 1px solid var(--rule); background: var(--surface); border-radius: 999px; padding: 4px 10px; font-size: 13px; }
-  .top .right { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); }
-  .pill { border: 1px solid var(--rule); background: var(--surface); border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: 13px; font-weight: 600; transition: border-color .2s; }
-  .pill:hover { border-color: var(--ink-3); }
-  .demo-flag { background: var(--cryo-soft); color: var(--cryo); padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  /* 상단: 글자만 있는 한 줄 */
+  .top { position: sticky; top: 0; z-index: 10; background: var(--paper); }
+  .top .wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; height: 52px; border-bottom: 1px solid var(--hair); font-size: 13px; }
+  .brand { font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+  .brand small { font-weight: 400; color: var(--ink-2); margin-left: 12px; font-size: 13px; letter-spacing: 0; }
+  .brand select { margin-left: 8px; border: 0; border-bottom: 1px solid var(--ink); background: none; font-size: 13px; }
+  .clock { font: 500 12px var(--mono); letter-spacing: .06em; color: var(--ink-2); }
+  .top .right { justify-self: end; display: flex; align-items: center; gap: 20px; color: var(--ink-2); }
+  .pill, .link { background: none; border: 0; padding: 4px 0; cursor: pointer; color: var(--ink); font-size: 13px; font-weight: 600; border-bottom: 1px solid currentColor; }
+  .demo-flag { color: var(--ink); font-weight: 700; white-space: nowrap; }
+  .demo-flag::before { content: "●"; margin-right: 6px; color: var(--crit); }
 
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
-  main.wrap { padding-top: 28px; padding-bottom: 48px; display: grid; gap: 20px; }
+  main.wrap { padding-bottom: 64px; }
   main.wrap > * { min-width: 0; }
 
-  /* 현재 상태 카드: 두 테마 모두 어두운 바탕 (냉동고 안쪽 느낌) */
-  .hero { --ink: #f5f7fa; --ink-2: #b4bcc8; --ink-3: #7d8794; --cryo-soft: #2a3342; --cryo: #79aaff;
-          --warn: #f2a93b; --crit: #ff6a5f; --ok: #4fd08f;
-          background: radial-gradient(120% 140% at 0% 0%, #22324a 0%, #10151d 55%, #0b0e13 100%);
-          color: var(--ink); border-radius: var(--r-lg); padding: 36px 40px 30px; box-shadow: var(--shadow); }
-  .hero-top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; }
-  .hero .label { color: var(--ink-2); font-size: 15px; font-weight: 600; margin-bottom: 6px; }
-  .temp { font-weight: 700; font-size: clamp(72px, 15vw, 148px); line-height: .92; letter-spacing: -0.05em; }
-  .temp .unit { font-size: .3em; font-weight: 600; letter-spacing: 0; color: var(--ink-2); margin-left: .1em; vertical-align: 1.05em; }
-  .verdict { max-width: 34ch; padding-bottom: 10px; }
-  .verdict strong { display: block; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
-  .verdict span { color: var(--ink-2); font-size: 15px; }
-  .s-OK strong { color: var(--ok); } .s-WARNING strong { color: var(--warn); }
-  .s-CRITICAL strong, .s-OFF strong { color: var(--crit); }
-  .scale { margin-top: 30px; }
+  /* 현재 온도: 화면을 꽉 채우는 숫자 */
+  .hero { padding: clamp(28px, 6vh, 72px) 0 clamp(24px, 4vh, 48px); }
+  .hero-top { display: block; }
+  .hero .label { font: 500 12px var(--mono); letter-spacing: 0; color: var(--ink-3); margin-bottom: 10px; }
+  .temp { font-weight: 800; font-size: clamp(112px, 25vw, 380px); line-height: .8; letter-spacing: -0.065em; margin-left: -0.04em; }
+  .temp .unit { font-weight: 200; font-size: .42em; letter-spacing: -0.02em; margin-left: .04em; vertical-align: .62em; color: var(--ink-2); }
+  .verdict { margin-top: clamp(20px, 3vw, 36px); max-width: 26ch; font-size: clamp(26px, 3.6vw, 52px); line-height: 1.12; letter-spacing: -0.035em; font-weight: 200; }
+  .verdict strong { font-weight: 800; }
+  .verdict span { display: block; }
+  .s-WARNING strong { color: var(--warn); } .s-CRITICAL strong, .s-OFF strong { color: var(--crit); }
+  .scale { margin-top: clamp(28px, 5vw, 56px); }
   .scale svg { width: 100%; height: 64px; display: block; overflow: visible; }
 
-  .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 0; }
-  .facts div { background: var(--surface); border-radius: var(--r-md); padding: 18px 20px; box-shadow: var(--shadow); }
-  .facts dt { color: var(--ink-2); font-size: 13px; font-weight: 600; }
-  .facts dd { margin: 6px 0 0; font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+  /* 사실 4개: 위쪽 선 + 글자. 상자 없음 */
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 clamp(12px, 2vw, 28px); margin: 0 0 clamp(48px, 8vw, 96px); }
+  .facts div { border-top: 1px solid var(--rule); padding-top: 10px; }
+  .facts dt { font: 500 12px/1.4 var(--mono); letter-spacing: 0; color: var(--ink-3); }
+  .facts dd { margin: 4px 0 0; font-size: clamp(17px, 1.7vw, 22px); font-weight: 600; letter-spacing: -0.02em; }
 
-  section.block { background: var(--surface); border-radius: var(--r-lg); padding: 28px 28px 22px; box-shadow: var(--shadow); }
-  .block-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-  .block-head h2 { font-size: 24px; font-weight: 700; margin: 0; letter-spacing: -0.03em; }
-  .seg { display: inline-flex; gap: 4px; background: var(--paper); border-radius: 999px; padding: 4px; }
-  .seg button { background: none; border: 0; padding: 6px 14px; border-radius: 999px; cursor: pointer; color: var(--ink-2); font-size: 13px; font-weight: 600; transition: background .2s, color .2s; }
-  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+  section.block { border-top: 1px solid var(--rule); padding-top: 14px; margin-bottom: clamp(48px, 8vw, 96px); }
+  .block-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px 24px; margin-bottom: clamp(16px, 3vw, 32px); }
+  .block-head h2 { font-size: clamp(34px, 5.5vw, 76px); font-weight: 800; margin: 0; letter-spacing: -0.05em; line-height: 1; }
+  .seg { display: inline-flex; gap: 18px; }
+  .seg button { background: none; border: 0; padding: 2px 0; cursor: pointer; color: var(--ink-3); font-size: 14px; font-weight: 600; border-bottom: 1px solid transparent; }
+  .seg button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
   .chart { position: relative; }
-  .chart svg { width: 100%; height: 320px; display: block; touch-action: pan-y; }
-  .tip { position: absolute; top: 0; pointer-events: none; background: var(--ink); color: var(--surface); font-size: 12px; font-weight: 600;
-         padding: 7px 11px; border-radius: 999px; white-space: nowrap; transform: translateX(-50%); }
-  .stats { display: flex; flex-wrap: wrap; gap: 6px 28px; color: var(--ink-2); font-size: 14px; margin-top: 12px; }
+  .chart svg { width: 100%; height: clamp(240px, 34vw, 420px); display: block; touch-action: pan-y; }
+  .tip { position: absolute; top: 0; pointer-events: none; background: var(--ink); color: var(--paper); font-size: 12px; font-weight: 600;
+         padding: 5px 8px; white-space: nowrap; transform: translateX(-50%); }
+  .stats { font-family: var(--mono); display: flex; flex-wrap: wrap; gap: 4px 32px; color: var(--ink-2); font-size: 13px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--hair); }
   .stats b { color: var(--ink); font-weight: 700; }
 
-  .events { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-  .events li { display: grid; grid-template-columns: 10px 1fr auto; gap: 16px; padding: 16px 18px; border-radius: var(--r-md); background: var(--paper); align-items: center; }
-  .events .sev { width: 10px; height: 10px; border-radius: 50%; background: var(--warn); }
+  /* 이상 기록: 가는 선으로 나눈 줄 */
+  .events { list-style: none; margin: 0; padding: 0; }
+  .events li { display: grid; grid-template-columns: 8px 1fr auto; gap: 18px; padding: 18px 0; border-bottom: 1px solid var(--hair); align-items: baseline; }
+  .events .sev { width: 8px; height: 8px; background: var(--warn); align-self: center; }
   .events .CRITICAL .sev { background: var(--crit); }
-  .events .what { font-weight: 700; }
+  .events .what { font-size: clamp(18px, 2vw, 24px); font-weight: 700; letter-spacing: -0.03em; }
+  .events .what .when { font-weight: 400; letter-spacing: 0; }
   .events .when { color: var(--ink-2); font-size: 13px; }
+  .events div > .when:last-child { font: 400 12px var(--mono); letter-spacing: .02em; margin-top: 4px; }
   .live { color: var(--crit); font-weight: 700; }
-  .ack { border: 0; background: var(--ink); color: var(--surface); border-radius: 999px; padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 700; }
+  .ack { background: none; border: 0; border-bottom: 1px solid var(--ink); padding: 2px 0; cursor: pointer; font-size: 13px; font-weight: 700; }
   .acked { color: var(--ink-3); font-size: 13px; text-align: right; }
-  .empty { color: var(--ink-3); padding: 12px 0; }
-  .err { color: var(--crit); font-size: 14px; font-weight: 600; }
+  .empty { color: var(--ink-3); padding: 18px 0; }
+  .err { color: var(--crit); font-size: 14px; font-weight: 600; padding-top: 12px; }
   .err:empty { display: none; }
-  footer { color: var(--ink-3); font-size: 12px; text-align: center; }
+  footer { color: var(--ink-3); font-size: 12px; border-top: 1px solid var(--hair); padding-top: 10px; }
 
-  /* 처음 한 번만 부드럽게 등장 */
-  @media (prefers-reduced-motion: no-preference) {
-    main.wrap > * { animation: rise .6s cubic-bezier(.2, .7, .2, 1) both; }
-    main.wrap > :nth-child(3) { animation-delay: .06s; } main.wrap > :nth-child(4) { animation-delay: .12s; } main.wrap > :nth-child(5) { animation-delay: .18s; }
-    /* 투명도는 건드리지 않는다: 애니메이션이 멈춘 환경에서도 내용이 항상 보이게 */
-    @keyframes rise { from { transform: translateY(14px); } to { transform: none; } }
-  }
+  /* 로그인: 큰 제목 + 밑줄 입력칸 */
+  .login { min-height: 100vh; display: grid; align-items: end; padding: clamp(20px, 5vw, 64px); }
+  .login form { width: min(520px, 100%); display: grid; gap: 18px; }
+  .login h1 { font-size: clamp(48px, 9vw, 120px); font-weight: 800; margin: 0; letter-spacing: -0.06em; line-height: .9; }
+  .login p { margin: 0 0 8px; color: var(--ink-2); }
+  .login input { padding: 10px 0; border: 0; border-bottom: 1px solid var(--rule); background: none; font-size: 18px; border-radius: 0; }
+  .primary { justify-self: start; padding: 12px 28px; border: 0; background: var(--ink); color: var(--paper); cursor: pointer; font-weight: 700; }
+  .login .alt { justify-self: start; }
 
-  /* 로그인 */
-  .login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-  .login form { width: min(380px, 100%); display: grid; gap: 12px; background: var(--surface); border-radius: var(--r-lg); padding: 36px 32px; box-shadow: var(--shadow); }
-  .login h1 { font-size: 30px; font-weight: 700; margin: 0; letter-spacing: -0.03em; }
-  .login p { margin: 0 0 12px; color: var(--ink-2); }
-  .login input { padding: 14px 16px; border: 1px solid var(--rule); border-radius: 14px; background: var(--paper); }
-  .primary { padding: 14px; border: 0; border-radius: 999px; background: var(--cryo); color: #fff; cursor: pointer; font-weight: 700; }
-  .link { background: none; border: 0; padding: 6px; color: var(--cryo); cursor: pointer; font-weight: 600; font-size: 14px; }
-  .login .alt { justify-self: center; }
-
-  @media (max-width: 760px) { .facts { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
-  @media (max-width: 560px) {
-    .wrap { padding: 0 16px; }
-    main.wrap { padding-top: 16px; gap: 14px; }
-    .hero { padding: 26px 22px 22px; border-radius: 24px; }
-    section.block { padding: 22px 16px 16px; border-radius: 24px; }
-    .block-head h2 { font-size: 20px; }
-    .chart svg { height: 240px; }
-    .brand small, #who { display: none; }
-  }
+  @media (max-width: 760px) { .facts { grid-template-columns: repeat(2, 1fr); gap: 18px 16px; } .clock { display: none; } .top .wrap { grid-template-columns: 1fr auto; } }
+  @media (max-width: 560px) { .brand small, #who { display: none; } .top .right { gap: 14px; } }
 </style>
 </head>
 <body>
 <div class="login" id="login" hidden>
   <form id="loginForm">
-    <h1>냉동고 모니터</h1>
+    <h1>Freezer<br>−80℃</h1>
     <p>연구실 계정으로 로그인하세요.</p>
     <input id="u" placeholder="아이디" autocomplete="username" autocapitalize="off" required>
     <input id="p" type="password" placeholder="비밀번호" autocomplete="current-password" required>
@@ -141,7 +115,8 @@
 <div id="app" hidden>
   <header class="top">
     <div class="wrap">
-      <div class="brand">냉동고 모니터<small><span id="devName">-</span><span id="devPicker"></span></small></div>
+      <div class="brand">FREEZER MONITOR<small><span id="devName">-</span><span id="devPicker"></span></small></div>
+      <div class="clock num" id="clock"></div>
       <div class="right"><span class="demo-flag" id="demoFlag" hidden>DEMO · 가짜 데이터</span><span id="who"></span><button class="pill" id="logout">로그아웃</button></div>
     </div>
   </header>
@@ -150,7 +125,8 @@
 
     <div class="hero" id="hero">
       <div class="hero-top">
-        <div><div class="label">현재 온도</div><div class="temp num" id="temp" aria-live="polite">-</div></div>
+        <div class="label">현재 온도</div>
+        <div class="temp num" id="temp" aria-live="polite">-</div>
         <div class="verdict" id="verdict"><strong>-</strong><span></span></div>
       </div>
       <div class="scale"><svg id="scale" role="img" aria-label="현재 온도와 경보 기준 눈금"></svg></div>
@@ -184,6 +160,8 @@ const tz = { timeZone: "Asia/Seoul", hour12: false };
 const fTime = new Intl.DateTimeFormat("ko-KR", { ...tz, hour: "2-digit", minute: "2-digit" });
 const fDay = new Intl.DateTimeFormat("ko-KR", { ...tz, month: "numeric", day: "numeric" });
 const fFull = new Intl.DateTimeFormat("ko-KR", { ...tz, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const fClock = new Intl.DateTimeFormat("ko-KR", { ...tz, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+setInterval(() => { $("clock").textContent = fClock.format(new Date()) + " KST · UTC+9"; }, 1000);
 const T = s => s ? fFull.format(new Date(s * 1000)) : "-";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -319,7 +297,7 @@ function renderHero(st) {
 
 // 온도 눈금: -95 ~ -45℃. 안전/경고/위험 구간을 띠로, 현재 온도를 바늘로
 function renderScale(t) {
-  const svg = $("scale"), W = svg.clientWidth || 800, lo = -95, hi = -45, y0 = 24, h = 10;
+  const svg = $("scale"), W = svg.clientWidth || 800, lo = -95, hi = -45, y0 = 24, h = 3;
   const x = v => (Math.min(hi, Math.max(lo, v)) - lo) / (hi - lo) * W;
   const band = (a, b, c) => `<rect x="${x(a)}" y="${y0}" width="${x(b) - x(a)}" height="${h}" fill="var(${c})"/>`;
   let ticks = "";
@@ -352,7 +330,7 @@ function renderChart(r) {
   const span = r.to - r.from, stepT = span <= 3600 ? 600 : span <= 86400 ? 3 * 3600 : span <= 604800 ? 86400 : 5 * 86400;
   const fmtT = span <= 86400 ? fTime : fDay;
   for (let t = Math.ceil(r.from / stepT) * stepT; t < r.to; t += stepT)
-    g += `<line x1="${x(t)}" x2="${x(t)}" y1="${Tp}" y2="${H - B}" stroke="var(--rule)"/><text x="${x(t)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--ink-3)">${fmtT.format(new Date(t * 1000))}</text>`;
+    g += `<line x1="${x(t)}" x2="${x(t)}" y1="${Tp}" y2="${H - B}" stroke="var(--hair)"/><text x="${x(t)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--ink-3)">${fmtT.format(new Date(t * 1000))}</text>`;
   // 가로 눈금(온도)
   const stepV = hi - lo > 20 ? 10 : hi - lo > 8 ? 4 : 2;
   for (let v = Math.ceil(lo / stepV) * stepV; v <= hi; v += stepV)
@@ -374,7 +352,7 @@ function renderChart(r) {
   };
   for (const p of pts) { if (seg.length && p.ts - seg[seg.length - 1].ts > r.interval_s * 3) flush(); seg.push(p); }
   flush();
-  g += `<path d="${area}" fill="var(--cryo)" opacity=".08"/>`
+  g += `<path d="${area}" fill="var(--cryo)" opacity=".05"/>`
     + (r.interval_s > 60 ? `<path d="${peak}" fill="none" stroke="var(--cryo)" stroke-width="1" opacity=".45"/>` : "")
     + `<path d="${line}" fill="none" stroke="var(--cryo)" stroke-width="1.75" stroke-linejoin="round"/>`;
   g += `<line id="hx" y1="${Tp}" y2="${H - B}" stroke="var(--ink-2)" visibility="hidden"/><circle id="hd" r="4" fill="var(--cryo)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>`;
