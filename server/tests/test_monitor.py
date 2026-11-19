@@ -47,9 +47,9 @@ def test_live_alert_then_recovery_persisted_across_calls(sent):
     for i in range(61):  # 10분간 -65℃ (호출마다 SQLite에서 상태 복원 = 재시작과 동일)
         run([P(T0 + i * 10, -65.0)], T0 + i * 10)
     assert events() == [("temp", "WARNING", T0, None, -65.0)]
-    assert len(sent) == 1 and "WARNING" in sent[0]
+    assert len(sent) == 1 and "WARNING" in sent[0] and "현재 -65.0℃ (최고 -65.0℃)" in sent[0] and "측정" in sent[0]
     run([P(T0 + 700, -80.0)], T0 + 700)
-    assert events()[0][3] == T0 + 700 and len(sent) == 2 and "복구" in sent[1]
+    assert events()[0][3] == T0 + 700 and len(sent) == 2 and "복구" in sent[1] and "현재 -80.0℃" in sent[1]
 
 
 def test_backfill_batch_records_history_without_alerts(sent):

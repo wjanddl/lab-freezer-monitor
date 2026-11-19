@@ -28,11 +28,13 @@ SEVERITY = {engine.WARNING: "WARNING", engine.CRITICAL: "CRITICAL"}
 LABEL = {"temp": "온도", "door": "문 열림", "sensor": "센서 장애", "offline": "장치 무응답"}
 
 
-def _text(dev: str, kind: str, a: engine.Action) -> str:
+def _text(dev: str, kind: str, a: engine.Action, cur: float | None = None) -> str:
     # 이력(events.message)용 짧은 문구. 발송 시 KST 시각/대시보드 링크는 _apply·notify에서 덧붙인다
     value = ""
-    if a.value is not None:
-        value = f" {a.value:.1f}℃" if kind == "temp" else f" {a.value:.0f}분" if kind == "door" else ""
+    if kind == "temp" and cur is not None:
+        value = f" 현재 {cur:.1f}℃" + (f" (최고 {a.value:.1f}℃)" if a.value is not None else "")
+    elif a.value is not None:
+        value = f" 최고 {a.value:.1f}℃" if kind == "temp" else f" {a.value:.0f}분" if kind == "door" else ""
     head = {"resolve": "복구됨", "remind": f"[{SEVERITY[a.level]}] 지속 중"}.get(a.op, f"[{SEVERITY[a.level]}]")
     return f"{head} {dev} {LABEL[kind]}{value}"
 
@@ -48,7 +50,7 @@ def _save(db, dev: str, kind: str, st: State) -> None:
 
 async def _apply(db, dev: str, kind: str, st: State, actions: list[engine.Action], now: float) -> None:
     for a in actions:
-        text = _text(dev, kind, a)
+        text = _text(dev, kind, a, st.cur)
         if a.op == "start":
             cur = db.execute(
                 "INSERT INTO events (device_id, type, severity, started_at, peak_value, message) VALUES (?,?,?,?,?,?)",
@@ -60,8 +62,10 @@ async def _apply(db, dev: str, kind: str, st: State, actions: list[engine.Action
         elif a.op == "resolve":
             db.execute("UPDATE events SET resolved_at=?, peak_value=? WHERE id=?", (int(a.ts), a.value, a.event_id))
         # 발송 실패 시 notified_*를 갱신하지 않아 다음 틱에서 재시도된다
-        kst = datetime.fromtimestamp(a.ts, KST).strftime("%Y-%m-%d %H:%M:%S KST")
-        if a.notify and await notify.send(f"{text}\n{kst}") and a.op != "resolve":
+        # 온도 알림은 '현재' 값을 잰 시각을 적어 대시보드/OLED의 측정 시각과 대조할 수 있게 한다
+        temp_now = kind == "temp" and st.cur_ts is not None
+        kst = datetime.fromtimestamp(st.cur_ts if temp_now else a.ts, KST).strftime("%Y-%m-%d %H:%M:%S KST")
+        if a.notify and await notify.send(f"{text}\n{kst}" + (" 측정" if temp_now else "")) and a.op != "resolve":
             st.notified_at, st.notified_level = now, a.level
     if st.event_id and st.level and st.peak is not None:
         db.execute("UPDATE events SET peak_value=? WHERE id=? AND peak_value IS NOT ?", (st.peak, st.event_id, st.peak))
@@ -95,6 +99,8 @@ async def process(points: list[Point], now: float) -> None:
                         "sensor": engine.step_sensor(sts["sensor"], p.ts, bad, live, c),
                     }
                     if not bad:
+                        if p.ts > (sts["temp"].cur_ts or 0):
+                            sts["temp"].cur, sts["temp"].cur_ts = p.temp_c, p.ts
                         steps["temp"] = engine.step_temp(sts["temp"], p.ts, p.temp_c, live, c)
                     for k, acts in steps.items():
                         await _apply(db, dev, k, sts[k], acts, now)

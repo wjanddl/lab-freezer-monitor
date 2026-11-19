@@ -20,7 +20,7 @@ from luma.oled.device import ssd1306
 from PIL import ImageFont
 
 DEVICE_ID = "freezer-01"
-POLL_S = 10
+POLL_S = 5
 STALE_S = 180  # 측정값이 이보다 오래되면 NO DATA
 LOW_C = -85  # 서버 판정이 OK여도 이보다 낮으면 LOW 표시 (표시 전용)
 BLINK_S = 0.5
@@ -33,6 +33,7 @@ device.persist = True
 big = ImageFont.load_default(size=20)
 mid = ImageFont.load_default(size=14)
 small = ImageFont.load_default(size=11)
+tiny = ImageFont.load_default(size=10)  # 측정 시각 HH:MM:SS (40px, 오른쪽 칸에 딱 맞음)
 
 _tokens = {}
 
@@ -73,13 +74,13 @@ def view(st):
     """상태 응답 → (왼쪽 글자, 왼쪽 큰글씨 여부, 상태, 시각)."""
     dev = next((d for d in st["devices"] if d["device_id"] == DEVICE_ID), None)
     if dev is None:
-        return "NO DEV", False, "?", "--:--"
+        return "NO DEV", False, "?", "--:--:--"
     level = {"CRITICAL": "ALARM", "WARNING": "WARN"}.get(dev["alarm_level"], "OK")
     rd = dev["reading"]
     if not rd or st["server_time"] - rd["ts"] > STALE_S:
-        hhmm = datetime.fromtimestamp(rd["ts"], KST).strftime("%H:%M") if rd else "--:--"
+        hhmm = datetime.fromtimestamp(rd["ts"], KST).strftime("%H:%M:%S") if rd else "--:--:--"
         return "NO DATA", False, level, hhmm
-    hhmm = datetime.fromtimestamp(rd["ts"], KST).strftime("%H:%M")
+    hhmm = datetime.fromtimestamp(rd["ts"], KST).strftime("%H:%M:%S")
     if rd["temp_c"] is None:
         return "SENSOR?", False, level, hhmm
     if level == "OK" and rd["temp_c"] < LOW_C:
@@ -97,7 +98,7 @@ def draw(left, is_big, level, hhmm, inverted):
         d.text((2, 6) if is_big else (2, 8), left, font=big if is_big else mid, fill=fg)
         d.line((84, 0, 84, 31), fill=fg)
         d.text((88, 2), level, font=small, fill=fg)
-        d.text((88, 18), hhmm, font=small, fill=fg)
+        d.text((86, 18), hhmm, font=tiny, fill=fg)
 
 
 def main():
@@ -105,7 +106,7 @@ def main():
         try:
             frame = view(get_status())
         except (urllib.error.URLError, OSError, ValueError) as e:
-            frame = ("NO SERVER", False, "?", "--:--")
+            frame = ("NO SERVER", False, "?", "--:--:--")
             print(f"서버 오류: {type(e).__name__}", flush=True)
             _tokens.clear()  # 서버 재시작 등으로 토큰이 무효일 수 있으니 다음엔 새로 로그인
         print(f"{datetime.now(KST):%H:%M:%S} 표시: {frame[0]} | {frame[2]} | {frame[3]}", flush=True)

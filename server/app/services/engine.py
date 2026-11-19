@@ -26,6 +26,8 @@ class State:
     notified_at: float | None = None
     notified_level: int = 0
     event_id: int | None = None
+    cur: float | None = None  # 온도: 마지막 정상 측정값과 그 ts (알림 문구에 '현재' 값으로 표시)
+    cur_ts: float | None = None
 
 
 @dataclass
@@ -52,9 +54,9 @@ def _escalate(st, level, ts, value, live):
 def _resolve(st, ts, live):
     # 시작 알림이 한 번도 나가지 않았다면 복구 알림도 보내지 않는다
     a = Action("resolve", st.level, ts, st.peak, live and st.notified_at is not None, st.event_id)
-    last_ts = st.last_ts
+    keep = st.last_ts, st.cur, st.cur_ts
     st.__init__()
-    st.last_ts = last_ts
+    st.last_ts, st.cur, st.cur_ts = keep
     return a
 
 

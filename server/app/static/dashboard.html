@@ -154,7 +154,7 @@
 
 <script>
 // 시각은 서버가 UTC epoch 초로 주고, 표시만 Asia/Seoul. 30초마다 다시 읽는다.
-const POLL_MS = 10000, STALE_S = 180;
+const POLL_MS = 5000, STALE_S = 180;
 const KIND = { temp: "온도", door: "문 열림", sensor: "센서 장애", offline: "장치 무응답" };
 const tz = { timeZone: "Asia/Seoul", hour12: false };
 const fTime = new Intl.DateTimeFormat("ko-KR", { ...tz, hour: "2-digit", minute: "2-digit" });
@@ -253,10 +253,10 @@ $("loginForm").onsubmit = async e => {
 $("demoBtn").onclick = () => { DEMO = true; start(); };
 $("logout").onclick = async () => { if (!DEMO) try { await post("/api/v1/auth/logout", { refresh_token: store.get("refresh") }); } catch {} toLogin(); };
 
-let range = 86400, dev = null, lastChart = null;
+let range = 86400, dev = null, lastChart = null, lastFull = 0;
 $("range").onclick = e => {
   const b = e.target.closest("button"); if (!b) return;
-  range = +b.dataset.s;
+  range = +b.dataset.s; lastFull = 0;
   for (const x of $("range").children) x.setAttribute("aria-pressed", x === b);
   refresh();
 };
@@ -281,7 +281,7 @@ function renderHero(st) {
   $("devName").textContent = d.device_id;
   $("devPicker").innerHTML = st.devices.length > 1
     ? `<select id="devSel" aria-label="장치 선택">${st.devices.map(x => `<option ${x.device_id === dev ? "selected" : ""}>${esc(x.device_id)}</option>`).join("")}</select>` : "";
-  if ($("devSel")) $("devSel").onchange = e => { dev = e.target.value; refresh(); };
+  if ($("devSel")) $("devSel").onchange = e => { dev = e.target.value; lastFull = 0; refresh(); };
   const r = d.reading, stale = !r || st.server_time - r.ts > STALE_S;
   const [cls, head, sub] = verdictOf(d, st);
   $("temp").innerHTML = stale || r.temp_c == null ? "—" : `${r.temp_c.toFixed(1)}<span class="unit">℃</span>`;
@@ -289,7 +289,7 @@ function renderHero(st) {
   $("verdict").innerHTML = `<strong>${head}</strong><span>${esc(sub)}</span>`;
   renderScale(stale ? null : r.temp_c);
   $("facts").innerHTML = [
-    ["측정 시각", r ? T(r.ts) : "-"],
+    ["측정 시각", r ? fClock.format(new Date(r.ts * 1000)) : "-"],  // 초까지: OLED·텔레그램과 같은 측정값인지 대조용
     ["문", r && r.door_open != null && !stale ? (r.door_open ? "열림" : "닫힘") : "-"],
     ["경보 기준", `경고 ${TH.warn}℃ · 위험 ${TH.crit}℃`],
     ["장치 연결", d.online ? "정상" : "끊김"],
@@ -403,7 +403,9 @@ async function refresh() {
   try {
     const st = await Api.get("/api/v1/status");
     renderHero(st);
-    if (!dev) return;
+    // 현재값은 5초마다, 그래프·이력은 30초마다 (Pi 부하 절약)
+    if (!dev || Date.now() - lastFull < 30000) return;
+    lastFull = Date.now();
     const now = st.server_time;
     const [rd, ev] = await Promise.all([
       Api.get(`/api/v1/readings?device_id=${encodeURIComponent(dev)}&from=${now - range}&to=${now}`),
@@ -411,9 +413,9 @@ async function refresh() {
     ]);
     renderChart(rd); renderEvents(ev);
     $("err").textContent = "";
-    $("foot").textContent = `${fFull.format(new Date())}에 갱신 · 30초마다 자동 갱신`;
+    $("foot").textContent = `${fFull.format(new Date())}에 갱신 · 현재값 5초, 그래프 30초마다 자동 갱신`;
   } catch (x) {
-    if (x.message !== "login") $("err").textContent = "서버에 연결하지 못했습니다. 30초 후 다시 시도합니다.";
+    if (x.message !== "login") $("err").textContent = "서버에 연결하지 못했습니다. 잠시 후 다시 시도합니다.";
   }
 }
 addEventListener("resize", () => { if (lastChart) renderChart(lastChart); });
