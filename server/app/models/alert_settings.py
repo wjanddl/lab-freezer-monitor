@@ -19,8 +19,8 @@ class AlertSettings(BaseModel):
     # 센서 장애
     sensor_bad_count: int = Field(3, ge=1)  # 연속 N회 이상이면 장애
     sensor_ok_count: int = Field(3, ge=1)  # 연속 N회 정상이면 복구
-    sensor_min_c: float = -120
-    sensor_max_c: float = 50
+    sensor_min_c: float = -200  # PT100 측정 가능 범위
+    sensor_max_c: float = 850
     # 무응답 / 재알림
     offline_after_min: float = Field(3, gt=0)
     remind_warn_min: float = Field(60, gt=0)

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-TEMP_MIN, TEMP_MAX = -200.0, 100.0
+TEMP_MIN, TEMP_MAX = -200.0, 850.0  # PT100 측정 가능 범위(IEC 60751)
 # MAX31865 fault 비트는 8비트(0x01~0x80). 서버가 추가하는 "온도 범위 이상" 비트는 그 위에 둔다.
 FAULT_OUT_OF_RANGE = 0x100
 MAX_BATCH = 500

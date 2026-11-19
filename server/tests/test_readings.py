@@ -67,7 +67,7 @@ def test_missing_door_open_422(client):
 
 
 def test_temp_out_of_range_saved_as_fault(client, written):
-    assert client.post("/api/v1/readings", json=body(temp_c=500, sensor_fault=2)).status_code == 200
+    assert client.post("/api/v1/readings", json=body(temp_c=900, sensor_fault=2)).status_code == 200
     assert "temp_c" not in written[0] and "sensor_fault=258i" in written[0]  # 2 | 0x100
 
 
