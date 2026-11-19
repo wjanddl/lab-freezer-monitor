@@ -53,7 +53,8 @@ docker-compose.yml, .env.example, README.md
 - Pi(100.80.80.16, Tailscale) 배포 완료: ~/freezer-monitor에서 docker compose. OLED는 ~/freezer-oled/live_display.py(viewer 계정 oled, 서비스 등록 전)
 - 생존신호: HEALTHCHECK_URL에 60초마다 ping(틱+Influx 정상), 아니면 /fail. Pi .env에는 아직 비어 있음(사용자가 healthchecks.io에서 생성 필요)
 - 9단계: tools/simulate.py(측정값 전송 CLI), E2E는 `powershell -File tools/e2e/run.ps1` (별도 프로젝트 freezer-e2e, 가짜 텔레그램, 끝나면 볼륨 삭제. 운영 데이터/단체방 영향 없음)
-- 다음: 7(Pi 센서 리더: MAX31865 SPI + 리드스위치 GPIO, 하드웨어 확인 후), 8(Pi 운영 마무리: 백업 등)
+- 7단계(2026-11-19): PT100 3선 + MAX31865(RREF 430) 실측 정상(실온 25.7℃, fault 0). 센서 리더는 kobot 사용자 systemd 유닛(linger, sudo 불필요: `systemctl --user restart freezer-sensor`, `journalctl --user -u freezer-sensor`). 설정은 Pi의 sensor/config.json(권한 600, 장치 키 2026-11-19 재발급). 리드스위치 미연결(door_gpio=null)
+- 다음: 리드스위치 연결, 8(Pi 운영 마무리: 벽 어댑터, 백업 등)
 - 개발 편의: tools/send.ps1 (`$key` 설정 후 `. .\tools\send.ps1; Send -79.8`)로 측정값 전송 테스트
 - 검증 방법: `docker compose run --rm api pytest -q`, README 참고
 
@@ -66,4 +67,4 @@ docker-compose.yml, .env.example, README.md
 - 범위 밖 temp_c는 거부하지 않고 저장하되 temp_c 필드는 버리고 sensor_fault에 0x100 비트를 추가
 - Tailscale은 무료 플랜 수준으로만 (제한은 8단계에서 최신 문서 확인 후 접속 대상 조정)
 - Pi: Raspberry Pi 4 (메모리 8GB), Debian 12 bookworm arm64, NetworkManager, Tailscale 100.80.80.16, 현재 노트북 USB 전원(운영 시 벽 어댑터로 교체)
-- (2026-11-03) 센서 연결 전 임시: Pi 설정 DB의 remind_crit_min을 30→1440(하루 1회)으로 변경. 남아 있는 freezer-01 무응답 CRITICAL 재알림 폭주 방지. **센서 연결 시 PUT /api/v1/settings {"remind_crit_min": 30}으로 되돌릴 것**
+- remind_crit_min은 센서 연결 후 30으로 복구함(2026-11-19)
