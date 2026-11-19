@@ -268,6 +268,8 @@ function verdictOf(d, st) {
   if (r.temp_c == null) return ["CRITICAL", "센서 값을 읽지 못했습니다", `센서 오류 코드 0x${r.sensor_fault.toString(16)}. 배선을 확인하세요.`];
   if (d.alarm_level === "CRITICAL") return ["CRITICAL", "즉시 확인이 필요합니다", alarmText(d)];
   if (d.alarm_level === "WARNING") return ["WARNING", "경고 기준을 넘었습니다", alarmText(d)];
+  // 서버 알림은 기준 초과가 일정 시간 지속돼야 발생 → 그 전에도 OK로 보이지 않게
+  if (r.temp_c > TH.warn) return ["WARNING", "기준보다 온도가 높습니다", `경고 기준 ${TH.warn}℃ 초과. 계속되면 알림이 발송됩니다.`];
   return ["OK", "안전 범위에서 유지 중입니다", `경고 기준 ${TH.warn}℃까지 ${(TH.warn - r.temp_c).toFixed(1)}℃ 여유`];
 }
 const alarmText = d => d.alarms.map(a => `${KIND[a.kind] || a.kind} ${T(a.since)}부터`).join(", ");
