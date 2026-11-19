@@ -154,7 +154,7 @@
 
 <script>
 // 시각은 서버가 UTC epoch 초로 주고, 표시만 Asia/Seoul. 30초마다 다시 읽는다.
-const POLL_MS = 30000, STALE_S = 180;
+const POLL_MS = 10000, STALE_S = 180;
 const KIND = { temp: "온도", door: "문 열림", sensor: "센서 장애", offline: "장치 무응답" };
 const tz = { timeZone: "Asia/Seoul", hour12: false };
 const fTime = new Intl.DateTimeFormat("ko-KR", { ...tz, hour: "2-digit", minute: "2-digit" });
